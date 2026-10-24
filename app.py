@@ -6,19 +6,22 @@ import base64
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import pkcs7
 
-st.set_page_config(page_title="RajKaj DSC Validator", page_icon="✅")
-st.title("✅ राजकाज डिजिटल सिग्नेचर वैलिडेटर")
-st.write("अपनी PDF फाइल अपलोड करें और क्वेश्चन मार्क (?) को ग्रीन टिक (✔) में बदलें।")
+st.set_page_config(page_title="Universal DSC Validator", page_icon="✅")
+st.title("✅ डिजिटल सिग्नेचर वैलिडेटर (All-in-One)")
+st.write("राजकाज, ई-आधार, जाति/मूल निवास व अन्य सभी प्रमाण पत्रों के क्वेश्चन मार्क (?) को ग्रीन टिक (✔) में बदलें।")
 
-def extract_signer_from_pdf_bytes(pdf_bytes, xref):
-    info = {"name": "", "designation": "", "date": "", "reason": "Approved"}
+def extract_signer_from_pdf_bytes(doc, xref):
+    info = {"name": "", "designation": "", "location": "", "date": "", "reason": ""}
     try:
-        doc = fitz.open("pdf", pdf_bytes)
         sig_obj_str = doc.xref_object(xref)
         
         reason_match = re.search(r'/Reason\s*\((.*?)\)', sig_obj_str)
         if reason_match and reason_match.group(1).strip():
             info["reason"] = reason_match.group(1).strip()
+            
+        loc_match = re.search(r'/Location\s*\((.*?)\)', sig_obj_str)
+        if loc_match and loc_match.group(1).strip():
+            info["location"] = loc_match.group(1).strip()
             
         date_match = re.search(r'/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', sig_obj_str)
         if date_match:
@@ -41,7 +44,7 @@ def extract_signer_from_pdf_bytes(pdf_bytes, xref):
                 for attr in subject:
                     if attr.oid == x509.NameOID.COMMON_NAME and not info["name"]:
                         info["name"] = attr.value
-                    elif attr.oid in (x509.NameOID.TITLE, x509.NameOID.ORGANIZATIONAL_UNIT_NAME):
+                    elif attr.oid in (x509.NameOID.TITLE, x509.NameOID.ORGANIZATIONAL_UNIT_NAME, x509.NameOID.ORGANIZATION_NAME):
                         if not info["designation"]:
                             info["designation"] = attr.value
     except Exception:
@@ -67,7 +70,6 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     t_left = 0.032
     t_right = 0.039
 
-    # एकदम सटीक फिक्स कोऑर्डिनेट्स
     pts_main = [
         fitz.Point(x0 + w * 0.310, y0 + h * 0.585),
         fitz.Point(x0 + w * (0.310 + t_left), y0 + h * 0.505),
@@ -107,11 +109,9 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     
     raw_lines = [f"Digitally signed by {name}"]
     if designation:
-        for idx, d_line in enumerate(designation.splitlines()):
-            if idx == 0:
-                raw_lines.append(f"Designation : {d_line}")
-            else:
-                raw_lines.append(d_line)
+        for d_line in designation.splitlines():
+            if d_line.strip():
+                raw_lines.append(d_line.strip())
     if date_str:
         raw_lines.append(f"Date: {date_str}")
     if reason:
@@ -128,134 +128,141 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
             color=(0, 0, 0)
         )
 
-uploaded_file = st.file_uploader("यहाँ राजकाज की PDF फाइल चुनें", type=["pdf"])
+uploaded_file = st.file_uploader("यहाँ कोई भी PDF फाइल चुनें (राजकाज / ई-आधार / प्रमाण पत्र)", type=["pdf"])
 
 if uploaded_file:
     pdf_bytes = uploaded_file.read()
     doc = fitz.open("pdf", pdf_bytes)
     
-    default_info = {
-        "name": "Subhash Maharia", 
-        "designation": "Electoral Registration\nOfficer", 
-        "date": "2026.10.01 14:07:22 IST", 
-        "reason": "Approved"
-    }
-    
-    for page in doc:
-        for widget in page.widgets():
-            if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                extracted = extract_signer_from_pdf_bytes(pdf_bytes, widget.xref)
-                for k in default_info:
-                    if extracted.get(k):
-                        default_info[k] = extracted[k]
+    # यदि फाइल में पासवर्ड लगा हो (जैसे e-Aadhaar)
+    unlocked = True
+    if doc.needs_pass:
+        unlocked = False
+        pwd = st.text_input("🔒 यह PDF पासवर्ड से सुरक्षित है (जैसे e-Aadhaar)। कृपया पासवर्ड दर्ज करें:", type="password")
+        if pwd:
+            if doc.authenticate(pwd):
+                st.success("🔓 पासवर्ड सही है! फाइल अनलॉक हो गई।")
+                unlocked = True
+            else:
+                st.error("❌ गलत पासवर्ड! कृपया सही पासवर्ड डालें।")
 
-    st.subheader("सिग्नेचर विवरण:")
-    name = st.text_input("अधिकारी का नाम (Digitally signed by):", value=default_info["name"])
-    designation = st.text_area("पद (Designation - दूसरी लाइन के लिए Enter दबाएं):", value=default_info["designation"], height=68)
-    date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"])
-    reason = st.text_input("कारण (Reason):", value=default_info["reason"])
-
-    if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF तैयार करें", use_container_width=True):
-        out_doc = fitz.open("pdf", pdf_bytes)
-        stamped_count = 0
+    if unlocked:
+        default_info = {
+            "name": "Subhash Maharia", 
+            "designation": "Designation : Electoral Registration\nOfficer", 
+            "date": "2026.10.01 14:07:22 IST", 
+            "reason": "Approved"
+        }
         
-        for page in out_doc:
-            widgets = list(page.widgets())
-            for widget in widgets:
+        for page in doc:
+            for widget in page.widgets():
                 if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                    rect = widget.rect
-                    page.delete_widget(widget)
-                    draw_green_tick_and_text(page, rect, name, designation, date_str, reason)
-                    stamped_count += 1
-                    
-        if stamped_count == 0:
-            last_page = out_doc[-1]
-            pw, ph = last_page.rect.width, last_page.rect.height
-            custom_rect = fitz.Rect(pw - 220, ph - 110, pw - 30, ph - 30)
-            draw_green_tick_and_text(last_page, custom_rect, name, designation, date_str, reason)
+                    extracted = extract_signer_from_pdf_bytes(doc, widget.xref)
+                    if extracted.get("name"):
+                        default_info["name"] = extracted["name"]
+                    if extracted.get("designation"):
+                        default_info["designation"] = f"Designation : {extracted['designation']}"
+                    elif extracted.get("location"):
+                        default_info["designation"] = f"Location: {extracted['location']}"
+                    if extracted.get("date"):
+                        default_info["date"] = extracted["date"]
+                    if extracted.get("reason"):
+                        default_info["reason"] = extracted["reason"]
 
-        st.session_state["processed_pdf"] = out_doc.tobytes()
-        st.session_state["show_preview"] = False
-        base_name = uploaded_file.name.rsplit(".", 1)[0]
-        st.session_state["default_filename"] = f"{base_name}_Validated"
+        st.subheader("सिग्नेचर विवरण:")
+        name = st.text_input("हस्ताक्षरकर्ता / विभाग (Digitally signed by):", value=default_info["name"])
+        designation = st.text_area("पद / विवरण (दूसरी लाइन के लिए Enter दबाएं):", value=default_info["designation"], height=68)
+        date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"])
+        reason = st.text_input("कारण (Reason - यदि खाली रखना हो तो मिटा दें):", value=default_info["reason"])
 
-    # जब PDF प्रोसेस हो जाए, तब View, Rename, Download और Share के विकल्प दिखाएं
-    if "processed_pdf" in st.session_state:
-        st.success("✅ आपकी ग्रीन टिक वाली फाइल तैयार है!")
-        
-        # 1. VIEW (प्रीव्यू देखने का बटन)
-        if st.button("👁️ PDF व्यू (Preview) देखें / छुपाएं", use_container_width=True):
-            st.session_state["show_preview"] = not st.session_state.get("show_preview", False)
+        if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF तैयार करें", use_container_width=True):
+            for page in doc:
+                widgets = list(page.widgets())
+                stamped_count = 0
+                for widget in widgets:
+                    if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                        rect = widget.rect
+                        page.delete_widget(widget)
+                        draw_green_tick_and_text(page, rect, name, designation, date_str, reason)
+                        stamped_count += 1
+                        
+            st.session_state["processed_pdf"] = doc.tobytes()
+            st.session_state["show_preview"] = False
+            base_name = uploaded_file.name.rsplit(".", 1)[0]
+            st.session_state["default_filename"] = f"{base_name}_Validated"
+
+        if "processed_pdf" in st.session_state:
+            st.success("✅ आपकी ग्रीन टिक वाली फाइल तैयार है!")
             
-        if st.session_state.get("show_preview", False):
-            st.info("📄 फाइल का प्रीव्यू (आप इसे ज़ूम करके देख सकते हैं):")
-            preview_doc = fitz.open("pdf", st.session_state["processed_pdf"])
-            for i, page in enumerate(preview_doc):
-                pix = page.get_pixmap(dpi=150)
-                st.image(pix.tobytes("png"), caption=f"पेज {i+1}", use_container_width=True)
+            if st.button("👁️ PDF व्यू (Preview) देखें / छुपाएं", use_container_width=True):
+                st.session_state["show_preview"] = not st.session_state.get("show_preview", False)
+                
+            if st.session_state.get("show_preview", False):
+                st.info("📄 फाइल का प्रीव्यू (आप इसे ज़ूम करके देख सकते हैं):")
+                preview_doc = fitz.open("pdf", st.session_state["processed_pdf"])
+                for i, page in enumerate(preview_doc):
+                    pix = page.get_pixmap(dpi=150)
+                    st.image(pix.tobytes("png"), caption=f"पेज {i+1}", use_container_width=True)
 
-        st.divider()
+            st.divider()
 
-        # 2. RENAME (फाइल का नाम बदलने का ऑप्शन)
-        custom_name = st.text_input(
-            "✏️ फाइल को नया नाम दें (Rename File):", 
-            value=st.session_state.get("default_filename", "Validated_Document")
-        )
-        final_filename = custom_name.strip()
-        if not final_filename.lower().endswith(".pdf"):
-            final_filename += ".pdf"
+            custom_name = st.text_input(
+                "✏️ फाइल को नया नाम दें (Rename File):", 
+                value=st.session_state.get("default_filename", "Validated_Document")
+            )
+            final_filename = custom_name.strip()
+            if not final_filename.lower().endswith(".pdf"):
+                final_filename += ".pdf"
 
-        # 3. DOWNLOAD / SAVE (फोन में सेव करने का बटन)
-        st.download_button(
-            label=f"📥 फाइल सेव / डाउनलोड करें ({final_filename})",
-            data=st.session_state["processed_pdf"],
-            file_name=final_filename,
-            mime="application/pdf",
-            use_container_width=True
-        )
+            st.download_button(
+                label=f"📥 फाइल सेव / डाउनलोड करें ({final_filename})",
+                data=st.session_state["processed_pdf"],
+                file_name=final_filename,
+                mime="application/pdf",
+                use_container_width=True
+            )
 
-        # 4. SHARE (सीधे WhatsApp, Telegram, Email आदि पर भेजने का बटन)
-        b64_pdf = base64.b64encode(st.session_state["processed_pdf"]).decode("utf-8")
-        share_html = f"""
-        <button onclick="sharePDF()" style="
-            width: 100%;
-            padding: 12px;
-            background-color: #25D366;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-            📤 कहीं भी शेयर करें (WhatsApp / Telegram / Mail)
-        </button>
-        <script>
-        async function sharePDF() {{
-            const b64Data = "{b64_pdf}";
-            const byteCharacters = atob(b64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {{
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }}
-            const byteArray = new Uint8Array(byteNumbers);
-            const file = new File([byteArray], "{final_filename}", {{ type: "application/pdf" }});
-
-            if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                try {{
-                    await navigator.share({{
-                        files: [file],
-                        title: "{final_filename}",
-                        text: "वैलिडेटेड राजकाज दस्तावेज़"
-                    }});
-                }} catch (err) {{
-                    console.log("Share cancelled", err);
+            b64_pdf = base64.b64encode(st.session_state["processed_pdf"]).decode("utf-8")
+            share_html = f"""
+            <button onclick="sharePDF()" style="
+                width: 100%;
+                padding: 12px;
+                background-color: #25D366;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-top: 5px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                📤 कहीं भी शेयर करें (WhatsApp / Telegram / Mail)
+            </button>
+            <script>
+            async function sharePDF() {{
+                const b64Data = "{b64_pdf}";
+                const byteCharacters = atob(b64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {{
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
                 }}
-            }} else {{
-                alert("आपके ब्राउज़र में डायरेक्ट शेयर सपोर्ट नहीं है, कृपया ऊपर दिए गए डाउनलोड बटन से सेव करके शेयर करें।");
+                const byteArray = new Uint8Array(byteNumbers);
+                const file = new File([byteArray], "{final_filename}", {{ type: "application/pdf" }});
+
+                if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                    try {{
+                        await navigator.share({{
+                            files: [file],
+                            title: "{final_filename}",
+                            text: "वैलिडेटेड दस्तावेज़"
+                        }});
+                    }} catch (err) {{
+                        console.log("Share cancelled", err);
+                    }}
+                }} else {{
+                    alert("आपके ब्राउज़र में डायरेक्ट शेयर सपोर्ट नहीं है, कृपया ऊपर दिए गए डाउनलोड बटन से सेव करके शेयर करें।");
+                }}
             }}
-        }}
-        </script>
-        """
-        components.html(share_html, height=65)
+            </script>
+            """
+            components.html(share_html, height=65)
