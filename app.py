@@ -9,7 +9,6 @@ st.title("✅ राजकाज डिजिटल सिग्नेचर व
 st.write("अपनी PDF फाइल अपलोड करें और क्वेश्चन मार्क (?) को हूबहू Adobe जैसे ग्रीन टिक (✔) में बदलें।")
 
 def extract_signer_from_pdf_bytes(pdf_bytes, xref):
-    """PDF के सिग्नेचर ऑब्जेक्ट से सर्टिफिकेट और टेक्स्ट निकालना"""
     info = {"name": "", "designation": "", "date": "", "reason": "Approved"}
     try:
         doc = fitz.open("pdf", pdf_bytes)
@@ -48,7 +47,6 @@ def extract_signer_from_pdf_bytes(pdf_bytes, xref):
     return info
 
 def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_width=1.0):
-    """टिक को 2 Quads और 6 लाइनों से सटीक और पतला ड्रॉ करना"""
     shape.draw_quad(fitz.Quad(pts[0], pts[1], pts[5], pts[2]))
     shape.draw_quad(fitz.Quad(pts[2], pts[3], pts[5], pts[4]))
     shape.finish(color=fill_color, fill=fill_color, width=0)
@@ -59,62 +57,54 @@ def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_wi
         shape.finish(color=stroke_color, width=stroke_width, lineCap=0, lineJoin=0)
 
 def draw_green_tick_and_text(page, rect, name, designation, date_str, reason, x_shift=0.0, slim_factor=1.0):
-    """सिग्नेचर बॉक्स के बिल्कुल सेंटर में पतला (Slim) ग्रीन टिक और टेक्स्ट छापना"""
-    # 1. पुराने क्वेश्चन मार्क को सफेद बॉक्स से साफ करना
     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
     
     w, h = rect.width, rect.height
     x0, y0 = rect.x0, rect.y0
 
-    # मोटाई कम करने के लिए स्लिम ऑफसेट
-    t_left = 0.038 * slim_factor   # बाईं पट्टी की मोटाई (पतली की गई)
-    t_right = 0.046 * slim_factor  # दाईं पट्टी की मोटाई (पतली की गई)
+    t_left = 0.032 * slim_factor
+    t_right = 0.039 * slim_factor
 
-    # 2. बिल्कुल सेंटर में अलाइन किए गए कोऑर्डिनेट्स ('v' और 'Approved' के बीच)
+    # ओरिजिनल इमेज के अनुसार 'v' और 'd' पर सटीक बैठने वाले कोऑर्डिनेट्स
     sx = x_shift * w
     pts_main = [
-        fitz.Point(x0 + w * 0.255 + sx, y0 + h * 0.585),                 # p0: बायां बाहरी कोना
-        fitz.Point(x0 + w * (0.255 + t_left) + sx, y0 + h * 0.505),      # p1: बायां ऊपरी कोना
-        fitz.Point(x0 + w * 0.380 + sx, y0 + h * 0.710),                 # p2: बीच का V-मोड़ (inner dip)
-        fitz.Point(x0 + w * 0.545 + sx, y0 + h * 0.195),                 # p3: दायां ऊपरी कोना (ठीक 'v' के पास)
-        fitz.Point(x0 + w * (0.545 + t_right) + sx, y0 + h * 0.265),     # p4: दायां बाहरी कोना
-        fitz.Point(x0 + w * 0.390 + sx, y0 + h * 0.865),                 # p5: सबसे नीचे की नोक ('d' के ऊपर)
+        fitz.Point(x0 + w * 0.310 + sx, y0 + h * 0.585),                 # p0: बायां बाहरी कोना ('.' के ऊपर)
+        fitz.Point(x0 + w * (0.310 + t_left) + sx, y0 + h * 0.505),      # p1: बायां ऊपरी कोना ('E' के पास)
+        fitz.Point(x0 + w * 0.435 + sx, y0 + h * 0.720),                 # p2: बीच का V-मोड़ ('01' के बीच)
+        fitz.Point(x0 + w * 0.595 + sx, y0 + h * 0.190),                 # p3: दायां ऊपरी कोना ('valid' के 'v' पर)
+        fitz.Point(x0 + w * (0.595 + t_right) + sx, y0 + h * 0.260),     # p4: दायां बाहरी कोना ('v' और 'a' के बीच)
+        fitz.Point(x0 + w * 0.445 + sx, y0 + h * 0.875),                 # p5: सबसे नीचे की नोक ('Approved' के 'd' पर)
     ]
     
-    # दाईं और नीचे की तरफ पतली काली 3D परछाई (Shadow)
-    dx = max(w * 0.012, 1.2)
-    dy = max(h * 0.018, 1.2)
+    dx = max(w * 0.011, 1.1)
+    dy = max(h * 0.017, 1.1)
     pts_shadow = [fitz.Point(p.x + dx, p.y + dy) for p in pts_main]
 
     shape = page.new_shape()
-    
-    # पहले काली 3D परछाई ड्रॉ करें
     draw_exact_tick_polygon(shape, pts_shadow, fill_color=(0, 0, 0), stroke_color=None)
 
-    # अब मुख्य हरा टिक और उसकी शार्प काली बॉर्डर ड्रॉ करें
-    border_w = max(w * 0.006, 0.75)
+    border_w = max(w * 0.0055, 0.7)
     draw_exact_tick_polygon(
         shape, 
         pts_main, 
-        fill_color=(0.0, 0.65, 0.16),  # Adobe Green
+        fill_color=(0.0, 0.65, 0.16),
         stroke_color=(0, 0, 0), 
         stroke_width=border_w
     )
     shape.commit()
     
-    # 3. ऊपर बड़े अक्षरों में "Signature valid" लिखना
-    header_fontsize = h * 0.255
+    # 'Signature valid' का साइज ओरिजिनल के बराबर (0.215)
+    header_fontsize = h * 0.215
     body_fontsize = h * 0.108
     
     page.insert_text(
-        fitz.Point(x0 + 2, y0 + h * 0.24),
+        fitz.Point(x0 + 2, y0 + h * 0.23),
         "Signature valid",
         fontsize=header_fontsize,
         fontname="helv",
         color=(0, 0, 0)
     )
     
-    # 4. नीचे अधिकारी का विवरण लाइन-बाय-लाइन लिखना
     raw_lines = [f"Digitally signed by {name}"]
     if designation:
         for idx, d_line in enumerate(designation.splitlines()):
@@ -127,7 +117,7 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason, x_
     if reason:
         raw_lines.append(f"Reason: {reason}")
         
-    start_y = y0 + h * 0.40
+    start_y = y0 + h * 0.395
     line_gap = body_fontsize * 1.18
     for i, line in enumerate(raw_lines):
         page.insert_text(
