@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 
 st.set_page_config(page_title="RajKaj DSC Validator", page_icon="✅")
 st.title("✅ राजकाज डिजिटल सिग्नेचर वैलिडेटर")
-st.write("अपनी PDF फाइल अपलोड करें और क्वेश्चन मार्क (?) को असली ग्रीन टिक (✔) में बदलें।")
+st.write("अपनी PDF फाइल अपलोड करें और क्वेश्चन मार्क (?) को हूबहू Adobe जैसे ग्रीन टिक (✔) में बदलें।")
 
 def extract_signer_from_pdf_bytes(pdf_bytes, xref):
     """PDF के सिग्नेचर ऑब्जेक्ट से सर्टिफिकेट और टेक्स्ट निकालना"""
@@ -47,78 +47,96 @@ def extract_signer_from_pdf_bytes(pdf_bytes, xref):
         pass
     return info
 
-def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
-    """सिग्नेचर बॉक्स पर हूबहू Adobe जैसा शार्प 6-Point ग्रीन टिक और टेक्स्ट छापना"""
+def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_width=1.0):
+    """टिक को 2 Quads और 6 लाइनों से सटीक और पतला ड्रॉ करना"""
+    shape.draw_quad(fitz.Quad(pts[0], pts[1], pts[5], pts[2]))
+    shape.draw_quad(fitz.Quad(pts[2], pts[3], pts[5], pts[4]))
+    shape.finish(color=fill_color, fill=fill_color, width=0)
+
+    if stroke_color and stroke_width > 0:
+        for i in range(6):
+            shape.draw_line(pts[i], pts[(i + 1) % 6])
+        shape.finish(color=stroke_color, width=stroke_width, lineCap=0, lineJoin=0)
+
+def draw_green_tick_and_text(page, rect, name, designation, date_str, reason, x_shift=0.0, slim_factor=1.0):
+    """सिग्नेचर बॉक्स के बिल्कुल सेंटर में पतला (Slim) ग्रीन टिक और टेक्स्ट छापना"""
     # 1. पुराने क्वेश्चन मार्क को सफेद बॉक्स से साफ करना
     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
     
     w, h = rect.width, rect.height
     x0, y0 = rect.x0, rect.y0
 
-    # 2. असली 6-कोनों वाला चेक मार्क (Polygon Coordinates - त्रिकोण नहीं बनेगा)
+    # मोटाई कम करने के लिए स्लिम ऑफसेट
+    t_left = 0.038 * slim_factor   # बाईं पट्टी की मोटाई (पतली की गई)
+    t_right = 0.046 * slim_factor  # दाईं पट्टी की मोटाई (पतली की गई)
+
+    # 2. बिल्कुल सेंटर में अलाइन किए गए कोऑर्डिनेट्स ('v' और 'Approved' के बीच)
+    sx = x_shift * w
     pts_main = [
-        fitz.Point(x0 + w * 0.36, y0 + h * 0.58),  # बायां बाहरी कोना
-        fitz.Point(x0 + w * 0.43, y0 + h * 0.47),  # बायां ऊपरी कोना
-        fitz.Point(x0 + w * 0.51, y0 + h * 0.67),  # बीच का गहरा मोड़ (V-dip)
-        fitz.Point(x0 + w * 0.68, y0 + h * 0.19),  # दायां ऊपरी सिरा (v के पास)
-        fitz.Point(x0 + w * 0.74, y0 + h * 0.28),  # दायां बाहरी सिरा
-        fitz.Point(x0 + w * 0.52, y0 + h * 0.87),  # सबसे नीचे की नोक
+        fitz.Point(x0 + w * 0.255 + sx, y0 + h * 0.585),                 # p0: बायां बाहरी कोना
+        fitz.Point(x0 + w * (0.255 + t_left) + sx, y0 + h * 0.505),      # p1: बायां ऊपरी कोना
+        fitz.Point(x0 + w * 0.380 + sx, y0 + h * 0.710),                 # p2: बीच का V-मोड़ (inner dip)
+        fitz.Point(x0 + w * 0.545 + sx, y0 + h * 0.195),                 # p3: दायां ऊपरी कोना (ठीक 'v' के पास)
+        fitz.Point(x0 + w * (0.545 + t_right) + sx, y0 + h * 0.265),     # p4: दायां बाहरी कोना
+        fitz.Point(x0 + w * 0.390 + sx, y0 + h * 0.865),                 # p5: सबसे नीचे की नोक ('d' के ऊपर)
     ]
     
-    # दाईं और नीचे की तरफ काली परछाई (3D Black Shadow Effect जैसा आपकी फोटो में है)
-    dx = max(w * 0.012, 1.5)
-    dy = max(h * 0.022, 1.5)
+    # दाईं और नीचे की तरफ पतली काली 3D परछाई (Shadow)
+    dx = max(w * 0.012, 1.2)
+    dy = max(h * 0.018, 1.2)
     pts_shadow = [fitz.Point(p.x + dx, p.y + dy) for p in pts_main]
 
     shape = page.new_shape()
     
-    # पहले काली परछाई ड्रॉ करें
-    shape.draw_polyline(pts_shadow + [pts_shadow[0]])
-    shape.finish(color=(0, 0, 0), fill=(0, 0, 0), width=0.5, closePath=True)
+    # पहले काली 3D परछाई ड्रॉ करें
+    draw_exact_tick_polygon(shape, pts_shadow, fill_color=(0, 0, 0), stroke_color=None)
 
-    # अब मुख्य हरा टिक (Sharp Green Tick with Black Outline) ड्रॉ करें
-    shape.draw_polyline(pts_main + [pts_main[0]])
-    shape.finish(
-        color=(0, 0, 0), 
-        fill=(0.0, 0.65, 0.18),  # असली गहरा हरा रंग
-        width=max(w * 0.009, 1.0), 
-        lineCap=0, 
-        lineJoin=0, 
-        closePath=True
+    # अब मुख्य हरा टिक और उसकी शार्प काली बॉर्डर ड्रॉ करें
+    border_w = max(w * 0.006, 0.75)
+    draw_exact_tick_polygon(
+        shape, 
+        pts_main, 
+        fill_color=(0.0, 0.65, 0.16),  # Adobe Green
+        stroke_color=(0, 0, 0), 
+        stroke_width=border_w
     )
     shape.commit()
     
     # 3. ऊपर बड़े अक्षरों में "Signature valid" लिखना
-    header_fontsize = max(min(h * 0.22, 16), 9.5)
-    body_fontsize = max(min(h * 0.115, 8.8), 6.0)
+    header_fontsize = h * 0.255
+    body_fontsize = h * 0.108
     
-    header_rect = fitz.Rect(x0 + 2, y0 + 1, rect.x1 - 2, y0 + h * 0.32)
-    page.insert_textbox(
-        header_rect, 
-        "Signature valid", 
-        fontsize=header_fontsize, 
-        fontname="helv", 
+    page.insert_text(
+        fitz.Point(x0 + 2, y0 + h * 0.24),
+        "Signature valid",
+        fontsize=header_fontsize,
+        fontname="helv",
         color=(0, 0, 0)
     )
     
-    # 4. नीचे अधिकारी का विवरण लिखना (टेक्स्ट टिक के ऊपर साफ दिखाई देगा)
-    lines = [f"Digitally signed by {name}"]
+    # 4. नीचे अधिकारी का विवरण लाइन-बाय-लाइन लिखना
+    raw_lines = [f"Digitally signed by {name}"]
     if designation:
-        lines.append(f"Designation : {designation}")
+        for idx, d_line in enumerate(designation.splitlines()):
+            if idx == 0:
+                raw_lines.append(f"Designation : {d_line}")
+            else:
+                raw_lines.append(d_line)
     if date_str:
-        lines.append(f"Date: {date_str}")
+        raw_lines.append(f"Date: {date_str}")
     if reason:
-        lines.append(f"Reason: {reason}")
+        raw_lines.append(f"Reason: {reason}")
         
-    body_text = "\n".join(lines)
-    body_rect = fitz.Rect(x0 + 2, y0 + h * 0.29, rect.x1 + 15, rect.y1 + 5)
-    page.insert_textbox(
-        body_rect, 
-        body_text, 
-        fontsize=body_fontsize, 
-        fontname="helv", 
-        color=(0, 0, 0)
-    )
+    start_y = y0 + h * 0.40
+    line_gap = body_fontsize * 1.18
+    for i, line in enumerate(raw_lines):
+        page.insert_text(
+            fitz.Point(x0 + 2, start_y + i * line_gap),
+            line,
+            fontsize=body_fontsize,
+            fontname="helv",
+            color=(0, 0, 0)
+        )
 
 uploaded_file = st.file_uploader("यहाँ राजकाज की PDF फाइल चुनें", type=["pdf"])
 
@@ -147,6 +165,10 @@ if uploaded_file:
     date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"])
     reason = st.text_input("कारण (Reason):", value=default_info["reason"])
 
+    with st.expander("⚙️ टिक की पोजिशन और मोटाई एडजस्ट करें (वैकल्पिक)"):
+        x_shift = st.slider("बाएं / दाएं खिसकाएं (Left / Right):", -0.20, 0.20, 0.0, 0.01)
+        slim_factor = st.slider("टिक की मोटाई (Thickness):", 0.6, 1.5, 1.0, 0.05)
+
     if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF बनाएं"):
         out_doc = fitz.open("pdf", pdf_bytes)
         stamped_count = 0
@@ -157,7 +179,7 @@ if uploaded_file:
                 if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
                     rect = widget.rect
                     page.delete_widget(widget)
-                    draw_green_tick_and_text(page, rect, name, designation, date_str, reason)
+                    draw_green_tick_and_text(page, rect, name, designation, date_str, reason, x_shift, slim_factor)
                     stamped_count += 1
                     
         if stamped_count == 0:
@@ -165,7 +187,7 @@ if uploaded_file:
             last_page = out_doc[-1]
             pw, ph = last_page.rect.width, last_page.rect.height
             custom_rect = fitz.Rect(pw - 220, ph - 110, pw - 30, ph - 30)
-            draw_green_tick_and_text(last_page, custom_rect, name, designation, date_str, reason)
+            draw_green_tick_and_text(last_page, custom_rect, name, designation, date_str, reason, x_shift, slim_factor)
 
         output_pdf = out_doc.tobytes()
         st.success("✅ आपकी फाइल तैयार है! नीचे बटन दबाकर डाउनलोड करें।")
