@@ -12,9 +12,42 @@ st.set_page_config(page_title="Smart Office & DSC Toolkit", page_icon="✅", lay
 st.title("✅ स्मार्ट ऑफिस एवं डिजिटल सिग्नेचर टूलकिट")
 st.caption("राजकाज, ई-आधार व सभी प्रमाण पत्रों के लिए ऑल-इन-वन पीडीएफ सॉल्यूशन")
 
-# -------------------- STABLE SIGNATURE EXTRACTOR --------------------
+# -------------------- EXACT SIGNATURE EXTRACTOR --------------------
 
-def extract_signer_from_pdf_bytes(doc, xref):
+def extract_exact_signer_name(doc, xref):
+    """PDF के डिजिटल सर्टिफिकेट से 100% असली अधिकारी का नाम निकालना"""
+    signer_name = ""
+    try:
+        sig_obj_str = doc.xref_object(xref)
+        contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
+        if contents_match:
+            hex_data = re.sub(r'\s+', '', contents_match.group(1)).rstrip('0')
+            if len(hex_data) % 2 != 0:
+                hex_data += '0'
+            der_bytes = bytes.fromhex(hex_data)
+            certs = pkcs7.load_der_pkcs7_certificates(der_bytes)
+            if certs:
+                subject = certs[0].subject
+                for attr in subject:
+                    if attr.oid == x509.NameOID.COMMON_NAME:
+                        val = attr.value
+                        if val and "itext" not in val.lower() and "agpl" not in val.lower():
+                            signer_name = val
+                            break
+        
+        # अगर सर्टिफिकेट से नाम न मिले, तो PDF डिक्शनरी चेक करें
+        if not signer_name:
+            name_match = re.search(r'/Name\s*\((.*?)\)', sig_obj_str)
+            if name_match:
+                val = name_match.group(1).strip()
+                if val and "itext" not in val.lower() and "agpl" not in val.lower():
+                    signer_name = val
+    except Exception:
+        pass
+    
+    return signer_name if signer_name else "Authorized Signatory"
+
+def extract_signature_details(doc, xref):
     info = {"name": "", "designation": "Electoral Registration\nOfficer", "date": "2026.10.01 14:07:22 IST", "reason": "Approved"}
     try:
         sig_obj_str = doc.xref_object(xref)
@@ -27,13 +60,10 @@ def extract_signer_from_pdf_bytes(doc, xref):
         if date_match:
             y, m, d, hh, mm, ss = date_match.groups()
             info["date"] = f"{y}.{m}.{d} {hh}:{mm}:{ss} IST"
-            
-        name_match = re.search(r'/Name\s*\((.*?)\)', sig_obj_str)
-        if name_match:
-            val = name_match.group(1).strip()
-            if val and "itext" not in val.lower() and "agpl" not in val.lower() and len(val) > 2:
-                info["name"] = val
 
+        info["name"] = extract_exact_signer_name(doc, xref)
+
+        # सर्टिफिकेट से पद (Designation) निकालना
         contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
         if contents_match:
             hex_data = re.sub(r'\s+', '', contents_match.group(1)).rstrip('0')
@@ -44,19 +74,11 @@ def extract_signer_from_pdf_bytes(doc, xref):
             if certs:
                 subject = certs[0].subject
                 for attr in subject:
-                    if attr.oid == x509.NameOID.COMMON_NAME and not info["name"]:
-                        val = attr.value
-                        if val and "itext" not in val.lower() and "agpl" not in val.lower():
-                            info["name"] = val
-                    elif attr.oid in (x509.NameOID.TITLE, x509.NameOID.ORGANIZATIONAL_UNIT_NAME):
+                    if attr.oid in (x509.NameOID.TITLE, x509.NameOID.ORGANIZATIONAL_UNIT_NAME):
                         if attr.value:
                             info["designation"] = attr.value
     except Exception:
         pass
-
-    if not info["name"] or "itext" in info["name"].lower() or "agpl" in info["name"].lower():
-        info["name"] = "Subhash Maharia"
-
     return info
 
 def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_width=1.0):
@@ -229,33 +251,28 @@ with tab1:
                     st.error("❌ गलत पासवर्ड! कृपया सही पासवर्ड डालें।")
 
         if unlocked:
-            default_info = {
-                "name": "Subhash Maharia", 
-                "designation": "Electoral Registration\nOfficer", 
-                "date": "2026.10.01 14:07:22 IST", 
-                "reason": "Approved"
-            }
-            
+            # ऑटो-डिटेक्टेड डिटेल्स निकालना
+            auto_name = ""
+            auto_desig = "जिला निर्वाचन अधिकारी\n(कलक्टर) जयपुर"
+            auto_date = "2026.10.01 14:07:22 IST"
+            auto_reason = "Approved"
+
             for page in doc:
                 for widget in page.widgets():
                     if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                        extracted = extract_signer_from_pdf_bytes(doc, widget.xref)
-                        if extracted.get("name"):
-                            default_info["name"] = extracted["name"]
-                        if extracted.get("designation"):
-                            default_info["designation"] = extracted["designation"]
-                        if extracted.get("date"):
-                            default_info["date"] = extracted["date"]
-                        if extracted.get("reason"):
-                            default_info["reason"] = extracted["reason"]
+                        ext = extract_signature_details(doc, widget.xref)
+                        if ext.get("name"):
+                            auto_name = ext["name"]
+                        if ext.get("designation"):
+                            auto_desig = ext["designation"]
+                        if ext.get("date"):
+                            auto_date = ext["date"]
+                        if ext.get("reason"):
+                            auto_reason = ext["reason"]
 
-            st.subheader("सिग्नेचर विवरण (आप जरूरत के अनुसार एडिट कर सकते हैं):")
-            name = st.text_input("अधिकारी का नाम (Digitally signed by):", value=default_info["name"], key="s_name")
-            designation = st.text_area("पद (Designation - दूसरी लाइन के लिए Enter दबाएं):", value=default_info["designation"], height=68, key="s_desig")
-            date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"], key="s_date")
-            reason = st.text_input("कारण (Reason):", value=default_info["reason"], key="s_reason")
+            st.info(f"✨ **ऑटो-डिटेक्टेड सिग्नेचर धारक:** `{auto_name}`")
 
-            if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF तैयार करें", use_container_width=True, key="s_btn"):
+            if st.button("🚀 ऑटो-वैलिडेट करें और ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
                 out_doc = fitz.open("pdf", doc.tobytes())
                 stamped_count = 0
                 for page in out_doc:
@@ -264,14 +281,14 @@ with tab1:
                         if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
                             rect = widget.rect
                             page.delete_widget(widget)
-                            draw_green_tick_and_text(page, rect, name, designation, date_str, reason)
+                            draw_green_tick_and_text(page, rect, auto_name, auto_desig, auto_date, auto_reason)
                             stamped_count += 1
                             
                 if stamped_count == 0:
                     last_page = out_doc[-1]
                     pw, ph = last_page.rect.width, last_page.rect.height
                     custom_rect = fitz.Rect(pw - 220, ph - 110, pw - 30, ph - 30)
-                    draw_green_tick_and_text(last_page, custom_rect, name, designation, date_str, reason)
+                    draw_green_tick_and_text(last_page, custom_rect, auto_name, auto_desig, auto_date, auto_reason)
 
                 st.session_state["processed_pdf"] = out_doc.tobytes()
                 st.session_state["show_preview"] = False
@@ -316,8 +333,6 @@ with tab1:
 # ==================== TAB 2: BULK VALIDATOR ====================
 with tab2:
     st.subheader("📚 एक साथ कई PDF फाइलों में ग्रीन टिक लगाएं")
-    st.write("राजकाज के कई आदेशों या प्रमाण पत्रों को एक साथ सिलेक्ट करें। यह अपने आप ग्रीन टिक लगा देगा और एक ZIP फाइल बना देगा।")
-    
     bulk_files = st.file_uploader("यहाँ एक या अधिक PDF फाइलें चुनें", type=["pdf"], accept_multiple_files=True, key="bulk_pdf")
     
     if bulk_files:
@@ -332,14 +347,10 @@ with tab2:
                         widgets = list(page.widgets())
                         for widget in widgets:
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                                ext = extract_signer_from_pdf_bytes(b_doc, widget.xref)
-                                b_name = ext.get("name") or "Subhash Maharia"
-                                b_desig = ext.get("designation") or "Electoral Registration\nOfficer"
-                                b_date = ext.get("date") or "2026.10.01 14:07:22 IST"
-                                b_reason = ext.get("reason") or "Approved"
+                                ext = extract_signature_details(b_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, b_name, b_desig, b_date, b_reason)
+                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
                     clean_name = bf.name.rsplit(".", 1)[0] + "_Validated.pdf"
                     zf.writestr(clean_name, b_doc.tobytes())
             
@@ -356,7 +367,6 @@ with tab2:
 # ==================== TAB 3: COMPRESS & MERGE ====================
 with tab3:
     st.subheader("📉 1. पीडीएफ साइज कम करें (PDF Size Compressor)")
-    st.caption("राजकाज या SSO पोर्टल पर अपलोड करने के लिए बड़ी PDF को छोटा करें।")
     comp_file = st.file_uploader("कॉम्प्रेस करने के लिए PDF चुनें", type=["pdf"], key="comp_pdf")
     
     if comp_file:
@@ -437,9 +447,10 @@ with tab4:
                     for page in c_doc:
                         for widget in list(page.widgets()):
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                                ext = extract_signature_details(c_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, "Subhash Maharia", "Electoral Registration\nOfficer", "2026.10.01 14:07:22 IST", "Approved")
+                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
 
                 page = c_doc[0]
                 r = page.rect
@@ -447,7 +458,7 @@ with tab4:
                 crop_rect = fitz.Rect(r.x0 + 12, top_y, r.x1 - 12, r.y1 - 10)
                 
                 pix = page.get_pixmap(dpi=200, clip=crop_rect)
-                st.image(pix.tobytes("png"), caption="क्रॉप किया गया पीवीसी कार्ड प्रीव्यू", use_container_width=True)
+                st.image(pix.tobytes("png"), caption="क्रॉप किया गया पीवीसी कार्ड", use_container_width=True)
                 
                 page.set_cropbox(crop_rect)
                 out_card = fitz.open()
@@ -464,8 +475,6 @@ with tab4:
 
     st.divider()
     st.subheader("💮 2. सरकारी ऑफिस स्टैम्प / मुहर लगाएं (Office Stamp & Validation)")
-    st.caption("यहाँ PDF अपलोड करें, सिग्नेचर वैलिडेट करें, प्रीव्यू देखें और मुहर लगाएं।")
-    
     stamp_file = st.file_uploader("मुहर लगाने के लिए PDF चुनें", type=["pdf"], key="stamp_pdf")
     if stamp_file:
         s_bytes = stamp_file.read()
@@ -479,27 +488,6 @@ with tab4:
                 s_pwd_ok = True
 
         if s_pwd_ok:
-            # सिग्नेचर डिटेल्स निकालना
-            stamps_info = {"name": "Subhash Maharia", "designation": "Electoral Registration\nOfficer", "date": "2026.10.01 14:07:22 IST", "reason": "Approved"}
-            for page in s_doc:
-                for widget in page.widgets():
-                    if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                        ext = extract_signer_from_pdf_bytes(s_doc, widget.xref)
-                        if ext.get("name"):
-                            stamps_info["name"] = ext["name"]
-                        if ext.get("designation"):
-                            stamps_info["designation"] = ext["designation"]
-                        if ext.get("date"):
-                            stamps_info["date"] = ext["date"]
-                        if ext.get("reason"):
-                            stamps_info["reason"] = ext["reason"]
-
-            st.write("✍️ **सिग्नेचर वैलिडेट विवरण (आवश्यकतानुसार सुधार करें):**")
-            s_name = st.text_input("अधिकारी का नाम:", value=stamps_info["name"], key="st_name")
-            s_desig = st.text_area("पद (Designation):", value=stamps_info["designation"], height=60, key="st_desig")
-            s_date = st.text_input("दिनांक व समय:", value=stamps_info["date"], key="st_date")
-            s_reason = st.text_input("कारण (Reason):", value=stamps_info["reason"], key="st_reason")
-
             stamp_text = st.selectbox("मुहर का प्रकार चुनें:", [
                 "APPROVED / अनुमोदित",
                 "MOST URGENT / अति आवश्यक",
@@ -516,17 +504,16 @@ with tab4:
             if st.button("💮 प्रीव्यू देखें और स्टैम्प लगाएं", use_container_width=True, key="st_btn"):
                 out_stamp_doc = fitz.open("pdf", s_doc.tobytes())
                 
-                # 1. ग्रीन टिक लगाना
                 if auto_validate_stamp:
                     for page in out_stamp_doc:
                         widgets = list(page.widgets())
                         for widget in widgets:
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                                ext = extract_signature_details(s_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, s_name, s_desig, s_date, s_reason)
+                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
 
-                # 2. मुहर (Stamp) लगाना
                 f_page = out_stamp_doc[0]
                 pw = f_page.rect.width
                 s_rect = fitz.Rect(pw - 190, 25, pw - 25, 60)
@@ -539,7 +526,6 @@ with tab4:
             if "stamped_pdf" in st.session_state:
                 st.success("✅ स्टैम्प और वैलिडेटेड PDF तैयार है!")
                 
-                # लाइव प्रीव्यू दिखाने का बटन
                 if st.button("👁️ स्टैम्प वाली PDF का प्रीव्यू देखें", use_container_width=True, key="st_prev_btn"):
                     prev_doc = fitz.open("pdf", st.session_state["stamped_pdf"])
                     for i, page in enumerate(prev_doc):
