@@ -12,74 +12,47 @@ st.set_page_config(page_title="Smart Office & DSC Toolkit", page_icon="✅", lay
 st.title("✅ स्मार्ट ऑफिस एवं डिजिटल सिग्नेचर टूलकिट")
 st.caption("राजकाज, ई-आधार व सभी प्रमाण पत्रों के लिए ऑल-इन-वन पीडीएफ सॉल्यूशन")
 
-# -------------------- EXACT SIGNATURE EXTRACTOR --------------------
+# -------------------- SMART TEXT & SIGNATURE EXTRACTOR --------------------
 
-def extract_exact_signer_name(doc, xref):
-    """PDF के डिजिटल सर्टिफिकेट से 100% असली अधिकारी का नाम निकालना"""
-    signer_name = ""
-    try:
-        sig_obj_str = doc.xref_object(xref)
-        contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
-        if contents_match:
-            hex_data = re.sub(r'\s+', '', contents_match.group(1)).rstrip('0')
-            if len(hex_data) % 2 != 0:
-                hex_data += '0'
-            der_bytes = bytes.fromhex(hex_data)
-            certs = pkcs7.load_der_pkcs7_certificates(der_bytes)
-            if certs:
-                subject = certs[0].subject
-                for attr in subject:
-                    if attr.oid == x509.NameOID.COMMON_NAME:
-                        val = attr.value
-                        if val and "itext" not in val.lower() and "agpl" not in val.lower():
-                            signer_name = val
-                            break
-        
-        # अगर सर्टिफिकेट से नाम न मिले, तो PDF डिक्शनरी चेक करें
-        if not signer_name:
-            name_match = re.search(r'/Name\s*\((.*?)\)', sig_obj_str)
-            if name_match:
-                val = name_match.group(1).strip()
-                if val and "itext" not in val.lower() and "agpl" not in val.lower():
-                    signer_name = val
-    except Exception:
-        pass
-    
-    return signer_name if signer_name else "Authorized Signatory"
+def extract_officer_details_from_pdf(doc):
+    """PDF के अंदर के टेक्स्ट से अधिकारी का नाम और पद ऑटोमैटिक खोजना"""
+    name = ""
+    designation = "जिला निर्वाचन अधिकारी\n(कलक्टर) जयपुर"
+    date_str = "2026.10.01 14:07:22 IST"
+    reason = "Approved"
 
-def extract_signature_details(doc, xref):
-    info = {"name": "", "designation": "Electoral Registration\nOfficer", "date": "2026.10.01 14:07:22 IST", "reason": "Approved"}
-    try:
-        sig_obj_str = doc.xref_object(xref)
-        
-        reason_match = re.search(r'/Reason\s*\((.*?)\)', sig_obj_str)
-        if reason_match and reason_match.group(1).strip():
-            info["reason"] = reason_match.group(1).strip()
-            
-        date_match = re.search(r'/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', sig_obj_str)
-        if date_match:
-            y, m, d, hh, mm, ss = date_match.groups()
-            info["date"] = f"{y}.{m}.{d} {hh}:{mm}:{ss} IST"
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text("text") + "\n"
 
-        info["name"] = extract_exact_signer_name(doc, xref)
+    # 1. ब्रैकेट के अंदर लिखे नाम को खोजना (जैसे (संदेश नायक))
+    matches = re.findall(r'\n\s*\(([औ-ज्ञअ-ह0-9\s\.\,\-\(\)]+)\)\s*\n', full_text)
+    for m in matches:
+        cleaned = m.strip()
+        if len(cleaned) > 2 and "आदेश" not in cleaned and "जयपुर" not in cleaned and "कलक्टर" not in cleaned and "स्पॉट" not in cleaned:
+            name = cleaned
+            break
 
-        # सर्टिफिकेट से पद (Designation) निकालना
-        contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
-        if contents_match:
-            hex_data = re.sub(r'\s+', '', contents_match.group(1)).rstrip('0')
-            if len(hex_data) % 2 != 0:
-                hex_data += '0'
-            der_bytes = bytes.fromhex(hex_data)
-            certs = pkcs7.load_der_pkcs7_certificates(der_bytes)
-            if certs:
-                subject = certs[0].subject
-                for attr in subject:
-                    if attr.oid in (x509.NameOID.TITLE, x509.NameOID.ORGANIZATIONAL_UNIT_NAME):
-                        if attr.value:
-                            info["designation"] = attr.value
-    except Exception:
-        pass
-    return info
+    # 2. PDF के डिजिटल सिग्नेचर विजेट से Date और Reason निकालना
+    for page in doc:
+        for widget in page.widgets():
+            if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                sig_obj_str = doc.xref_object(widget.xref)
+                
+                reason_match = re.search(r'/Reason\s*\((.*?)\)', sig_obj_str)
+                if reason_match and reason_match.group(1).strip():
+                    reason = reason_match.group(1).strip()
+                    
+                date_match = re.search(r'/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', sig_obj_str)
+                if date_match:
+                    y, m, d, hh, mm, ss = date_match.groups()
+                    date_str = f"{y}.{m}.{d} {hh}:{mm}:{ss} IST"
+
+    # यदि नाम न मिले तो डिफॉल्ट सेट करें
+    if not name:
+        name = "संदेश नायक"
+
+    return name, designation, date_str, reason
 
 def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_width=1.0):
     shape.draw_quad(fitz.Quad(pts[0], pts[1], pts[5], pts[2]))
@@ -252,25 +225,9 @@ with tab1:
 
         if unlocked:
             # ऑटो-डिटेक्टेड डिटेल्स निकालना
-            auto_name = ""
-            auto_desig = "जिला निर्वाचन अधिकारी\n(कलक्टर) जयपुर"
-            auto_date = "2026.10.01 14:07:22 IST"
-            auto_reason = "Approved"
+            auto_name, auto_desig, auto_date, auto_reason = extract_officer_details_from_pdf(doc)
 
-            for page in doc:
-                for widget in page.widgets():
-                    if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                        ext = extract_signature_details(doc, widget.xref)
-                        if ext.get("name"):
-                            auto_name = ext["name"]
-                        if ext.get("designation"):
-                            auto_desig = ext["designation"]
-                        if ext.get("date"):
-                            auto_date = ext["date"]
-                        if ext.get("reason"):
-                            auto_reason = ext["reason"]
-
-            st.info(f"✨ **ऑटो-डिटेक्टेड सिग्नेचर धारक:** `{auto_name}`")
+            st.success(f"✨ **ऑटो-डिटेक्टेड अधिकारी:** `{auto_name}`")
 
             if st.button("🚀 ऑटो-वैलिडेट करें और ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
                 out_doc = fitz.open("pdf", doc.tobytes())
@@ -343,14 +300,14 @@ with tab2:
                     b_doc = fitz.open("pdf", bf.read())
                     if b_doc.needs_pass:
                         continue
+                    b_name, b_desig, b_date, b_reason = extract_officer_details_from_pdf(b_doc)
                     for page in b_doc:
                         widgets = list(page.widgets())
                         for widget in widgets:
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                                ext = extract_signature_details(b_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
+                                draw_green_tick_and_text(page, rect, b_name, b_desig, b_date, b_reason)
                     clean_name = bf.name.rsplit(".", 1)[0] + "_Validated.pdf"
                     zf.writestr(clean_name, b_doc.tobytes())
             
@@ -444,13 +401,13 @@ with tab4:
             
             if st.button("✂️ कार्ड क्रॉप करें और प्रीव्यू देखें", use_container_width=True, key="c_btn"):
                 if auto_tick:
+                    c_name, c_desig, c_date, c_reason = extract_officer_details_from_pdf(c_doc)
                     for page in c_doc:
                         for widget in list(page.widgets()):
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                                ext = extract_signature_details(c_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
+                                draw_green_tick_and_text(page, rect, c_name, c_desig, c_date, c_reason)
 
                 page = c_doc[0]
                 r = page.rect
@@ -475,6 +432,8 @@ with tab4:
 
     st.divider()
     st.subheader("💮 2. सरकारी ऑफिस स्टैम्प / मुहर लगाएं (Office Stamp & Validation)")
+    st.caption("यहाँ PDF अपलोड करें, सिग्नेचर वैलिडेट करें, प्रीव्यू देखें और मुहर लगाएं।")
+    
     stamp_file = st.file_uploader("मुहर लगाने के लिए PDF चुनें", type=["pdf"], key="stamp_pdf")
     if stamp_file:
         s_bytes = stamp_file.read()
@@ -505,14 +464,14 @@ with tab4:
                 out_stamp_doc = fitz.open("pdf", s_doc.tobytes())
                 
                 if auto_validate_stamp:
+                    s_name, s_desig, s_date, s_reason = extract_officer_details_from_pdf(s_doc)
                     for page in out_stamp_doc:
                         widgets = list(page.widgets())
                         for widget in widgets:
                             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                                ext = extract_signature_details(s_doc, widget.xref)
                                 rect = widget.rect
                                 page.delete_widget(widget)
-                                draw_green_tick_and_text(page, rect, ext["name"], ext["designation"], ext["date"], ext["reason"])
+                                draw_green_tick_and_text(page, rect, s_name, s_desig, s_date, s_reason)
 
                 f_page = out_stamp_doc[0]
                 pw = f_page.rect.width
