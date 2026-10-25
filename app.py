@@ -31,7 +31,6 @@ def extract_signer_from_pdf_bytes(doc, xref):
         name_match = re.search(r'/Name\s*\((.*?)\)', sig_obj_str)
         if name_match:
             val = name_match.group(1).strip()
-            # यदि iText या तकनीकी कोड हो तो उसे इग्नोर करें
             if val and "itext" not in val.lower() and "agpl" not in val.lower() and len(val) > 2:
                 info["name"] = val
 
@@ -55,7 +54,6 @@ def extract_signer_from_pdf_bytes(doc, xref):
     except Exception:
         pass
 
-    # यदि नाम में कचरा या iText आ जाए तो उसे डिफ़ॉल्ट नाम से बदल दें
     if not info["name"] or "itext" in info["name"].lower() or "agpl" in info["name"].lower():
         info["name"] = "Subhash Maharia"
 
@@ -222,7 +220,7 @@ with tab1:
         unlocked = True
         if doc.needs_pass:
             unlocked = False
-            pwd = st.text_input("🔒 यह PDF पासवर्ड से सुरक्षित है। कृपया पासवर्ड दर्ज करें:", type="password")
+            pwd = st.text_input("🔒 यह PDF पासवर्ड से सुरक्षित है। कृपया पासवर्ड दर्ज करें:", type="password", key="s_pass")
             if pwd:
                 if doc.authenticate(pwd):
                     st.success("🔓 पासवर्ड सही है! फाइल अनलॉक हो गई।")
@@ -252,12 +250,12 @@ with tab1:
                             default_info["reason"] = extracted["reason"]
 
             st.subheader("सिग्नेचर विवरण (आप जरूरत के अनुसार एडिट कर सकते हैं):")
-            name = st.text_input("अधिकारी का नाम (Digitally signed by):", value=default_info["name"])
-            designation = st.text_area("पद (Designation - दूसरी लाइन के लिए Enter दबाएं):", value=default_info["designation"], height=68)
-            date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"])
-            reason = st.text_input("कारण (Reason):", value=default_info["reason"])
+            name = st.text_input("अधिकारी का नाम (Digitally signed by):", value=default_info["name"], key="s_name")
+            designation = st.text_area("पद (Designation - दूसरी लाइन के लिए Enter दबाएं):", value=default_info["designation"], height=68, key="s_desig")
+            date_str = st.text_input("दिनांक व समय (Date):", value=default_info["date"], key="s_date")
+            reason = st.text_input("कारण (Reason):", value=default_info["reason"], key="s_reason")
 
-            if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF तैयार करें", use_container_width=True):
+            if st.button("🚀 ग्रीन टिक (✔) लागू करें और PDF तैयार करें", use_container_width=True, key="s_btn"):
                 out_doc = fitz.open("pdf", doc.tobytes())
                 stamped_count = 0
                 for page in out_doc:
@@ -283,7 +281,7 @@ with tab1:
             if "processed_pdf" in st.session_state:
                 st.success("✅ आपकी ग्रीन टिक वाली फाइल तैयार है!")
                 
-                if st.button("👁️ PDF व्यू (Preview) देखें / छुपाएं", use_container_width=True):
+                if st.button("👁️ PDF व्यू (Preview) देखें / छुपाएं", use_container_width=True, key="s_prev"):
                     st.session_state["show_preview"] = not st.session_state.get("show_preview", False)
                     
                 if st.session_state.get("show_preview", False):
@@ -297,7 +295,8 @@ with tab1:
 
                 custom_name = st.text_input(
                     "✏️ फाइल को नया नाम दें (Rename File):", 
-                    value=st.session_state.get("default_filename", "Validated_Document")
+                    value=st.session_state.get("default_filename", "Validated_Document"),
+                    key="s_fname"
                 )
                 final_filename = custom_name.strip()
                 if not final_filename.lower().endswith(".pdf"):
@@ -308,7 +307,8 @@ with tab1:
                     data=st.session_state["processed_pdf"],
                     file_name=final_filename,
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
+                    key="s_dl"
                 )
 
                 render_share_and_print_buttons(st.session_state["processed_pdf"], final_filename)
@@ -321,7 +321,7 @@ with tab2:
     bulk_files = st.file_uploader("यहाँ एक या अधिक PDF फाइलें चुनें", type=["pdf"], accept_multiple_files=True, key="bulk_pdf")
     
     if bulk_files:
-        if st.button(f"⚡ सभी {len(bulk_files)} फाइलों को एक साथ वैलिडेट करें", use_container_width=True):
+        if st.button(f"⚡ सभी {len(bulk_files)} फाइलों को एक साथ वैलिडेट करें", use_container_width=True, key="b_btn"):
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
                 for bf in bulk_files:
@@ -349,7 +349,8 @@ with tab2:
                 data=zip_buffer.getvalue(),
                 file_name="All_Validated_Documents.zip",
                 mime="application/zip",
-                use_container_width=True
+                use_container_width=True,
+                key="b_dl"
             )
 
 # ==================== TAB 3: COMPRESS & MERGE ====================
@@ -366,9 +367,9 @@ with tab3:
         comp_mode = st.radio("कॉम्प्रेशन लेवल चुनें:", [
             "लाइट कॉम्प्रेशन (टेक्स्ट एकदम शार्प रहेगा)",
             "हाई कॉम्प्रेशन (स्कैन की गई बड़ी फाइलों के लिए - 100 DPI)"
-        ])
+        ], key="comp_mode")
         
-        if st.button("📉 साइज कम करें (Compress PDF)", use_container_width=True):
+        if st.button("📉 साइज कम करें (Compress PDF)", use_container_width=True, key="comp_btn"):
             c_doc = fitz.open("pdf", orig_bytes)
             if "लाइट" in comp_mode:
                 comp_bytes = c_doc.tobytes(garbage=4, deflate=True, clean=True)
@@ -387,14 +388,15 @@ with tab3:
                 data=comp_bytes,
                 file_name="Compressed_" + comp_file.name,
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                key="comp_dl"
             )
 
     st.divider()
     st.subheader("📑 2. दो या अधिक PDF को जोड़ें (Merge PDFs)")
     merge_files = st.file_uploader("जोड़ने के लिए 2 या अधिक PDF फाइलें चुनें", type=["pdf"], accept_multiple_files=True, key="merge_pdf")
     if merge_files and len(merge_files) >= 2:
-        if st.button("🔗 सभी फाइलों को जोड़कर एक PDF बनाएं", use_container_width=True):
+        if st.button("🔗 सभी फाइलों को जोड़कर एक PDF बनाएं", use_container_width=True, key="merge_btn"):
             merged_doc = fitz.open()
             for mf in merge_files:
                 m_doc = fitz.open("pdf", mf.read())
@@ -406,13 +408,14 @@ with tab3:
                 data=merged_bytes,
                 file_name="Merged_Document.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                key="merge_dl"
             )
 
 # ==================== TAB 4: ID CARD CROPPER & OFFICE STAMP ====================
 with tab4:
-    st.subheader("🪪 1. पीवीसी कार्ड क्रॉपर (e-Aadhaar / Jan-Aadhaar Card Size)")
-    st.caption("A4 साइज के दस्तावेज़ से केवल नीचे वाला कार्ड हिस्सा काटकर अलग करें।")
+    st.subheader("🪪 1. पीवीसी कार्ड क्रॉपर (e-Aadhaar / Jan-Aadhaar)")
+    st.caption("A4 साइज के दस्तावेज़ से केवल नीचे वाला कार्ड हिस्सा काटें और डिजिटल सिग्नेचर वैलिडेट करें।")
     card_file = st.file_uploader("कार्ड क्रॉप करने के लिए PDF चुनें", type=["pdf"], key="card_pdf")
     
     if card_file:
@@ -426,10 +429,10 @@ with tab4:
                 pwd_ok = True
 
         if pwd_ok:
-            crop_ratio = st.slider("नीचे से कार्ड की ऊंचाई का हिस्सा चुनें (%):", 20, 50, 31)
-            auto_tick = st.checkbox("कार्ड पर मौजूद डिजिटल सिग्नेचर (?) को भी ग्रीन टिक (✔) में बदलें", value=True)
+            crop_ratio = st.slider("नीचे से कार्ड की ऊंचाई का हिस्सा चुनें (%):", 20, 50, 31, key="c_ratio")
+            auto_tick = st.checkbox("कार्ड पर मौजूद डिजिटल सिग्नेचर (?) को भी ग्रीन टिक (✔) में बदलें", value=True, key="c_tick")
             
-            if st.button("✂️ कार्ड क्रॉप करें और प्रीव्यू देखें", use_container_width=True):
+            if st.button("✂️ कार्ड क्रॉप करें और प्रीव्यू देखें", use_container_width=True, key="c_btn"):
                 if auto_tick:
                     for page in c_doc:
                         for widget in list(page.widgets()):
@@ -444,7 +447,7 @@ with tab4:
                 crop_rect = fitz.Rect(r.x0 + 12, top_y, r.x1 - 12, r.y1 - 10)
                 
                 pix = page.get_pixmap(dpi=200, clip=crop_rect)
-                st.image(pix.tobytes("png"), caption="क्रॉप किया गया पीवीसी कार्ड", use_container_width=True)
+                st.image(pix.tobytes("png"), caption="क्रॉप किया गया पीवीसी कार्ड प्रीव्यू", use_container_width=True)
                 
                 page.set_cropbox(crop_rect)
                 out_card = fitz.open()
@@ -455,37 +458,99 @@ with tab4:
                     data=out_card.tobytes(),
                     file_name="Card_" + card_file.name,
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
+                    key="c_dl"
                 )
 
     st.divider()
-    st.subheader("💮 2. सरकारी ऑफिस स्टैम्प / मुहर लगाएं (Office Stamp)")
+    st.subheader("💮 2. सरकारी ऑफिस स्टैम्प / मुहर लगाएं (Office Stamp & Validation)")
+    st.caption("यहाँ PDF अपलोड करें, सिग्नेचर वैलिडेट करें, प्रीव्यू देखें और मुहर लगाएं।")
+    
     stamp_file = st.file_uploader("मुहर लगाने के लिए PDF चुनें", type=["pdf"], key="stamp_pdf")
     if stamp_file:
-        stamp_text = st.selectbox("मुहर का प्रकार चुनें:", [
-            "APPROVED / अनुमोदित",
-            "MOST URGENT / अति आवश्यक",
-            "TRUE COPY / प्रमाणित प्रतिलिपि",
-            "SEEN & FILED / देखा गया"
-        ])
-        stamp_color_choice = st.radio("मुहर का रंग:", ["लाल (Red)", "नीला (Blue)", "हरा (Green)"], horizontal=True)
-        color_map = {"लाल (Red)": (0.8, 0.0, 0.0), "नीला (Blue)": (0.0, 0.2, 0.75), "हरा (Green)": (0.0, 0.55, 0.15)}
-        s_color = color_map[stamp_color_choice]
+        s_bytes = stamp_file.read()
+        s_doc = fitz.open("pdf", s_bytes)
+        
+        s_pwd_ok = True
+        if s_doc.needs_pass:
+            s_pwd_ok = False
+            s_pwd = st.text_input("🔒 यह PDF पासवर्ड सुरक्षित है। पासवर्ड दर्ज करें:", type="password", key="stamp_pwd")
+            if s_pwd and s_doc.authenticate(s_pwd):
+                s_pwd_ok = True
 
-        if st.button("💮 पहले पेज पर ऊपरी दाएं कोने में मुहर लगाएं", use_container_width=True):
-            s_doc = fitz.open("pdf", stamp_file.read())
-            f_page = s_doc[0]
-            pw = f_page.rect.width
-            s_rect = fitz.Rect(pw - 190, 25, pw - 25, 60)
+        if s_pwd_ok:
+            # सिग्नेचर डिटेल्स निकालना
+            stamps_info = {"name": "Subhash Maharia", "designation": "Electoral Registration\nOfficer", "date": "2026.10.01 14:07:22 IST", "reason": "Approved"}
+            for page in s_doc:
+                for widget in page.widgets():
+                    if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                        ext = extract_signer_from_pdf_bytes(s_doc, widget.xref)
+                        if ext.get("name"):
+                            stamps_info["name"] = ext["name"]
+                        if ext.get("designation"):
+                            stamps_info["designation"] = ext["designation"]
+                        if ext.get("date"):
+                            stamps_info["date"] = ext["date"]
+                        if ext.get("reason"):
+                            stamps_info["reason"] = ext["reason"]
+
+            st.write("✍️ **सिग्नेचर वैलिडेट विवरण (आवश्यकतानुसार सुधार करें):**")
+            s_name = st.text_input("अधिकारी का नाम:", value=stamps_info["name"], key="st_name")
+            s_desig = st.text_area("पद (Designation):", value=stamps_info["designation"], height=60, key="st_desig")
+            s_date = st.text_input("दिनांक व समय:", value=stamps_info["date"], key="st_date")
+            s_reason = st.text_input("कारण (Reason):", value=stamps_info["reason"], key="st_reason")
+
+            stamp_text = st.selectbox("मुहर का प्रकार चुनें:", [
+                "APPROVED / अनुमोदित",
+                "MOST URGENT / अति आवश्यक",
+                "TRUE COPY / प्रमाणित प्रतिलिपि",
+                "SEEN & FILED / देखा गया"
+            ], key="st_type")
             
-            f_page.draw_rect(s_rect, color=s_color, width=2.0)
-            f_page.insert_textbox(s_rect, stamp_text.split("/")[0].strip(), fontsize=13, fontname="helv", color=s_color, align=1)
-            
-            st.success("✅ मुहर लग चुकी है!")
-            st.download_button(
-                label="📥 स्टैम्प लगी हुई PDF डाउनलोड करें",
-                data=s_doc.tobytes(),
-                file_name="Stamped_" + stamp_file.name,
-                mime="application/pdf",
-                use_container_width=True
-            )
+            stamp_color_choice = st.radio("मुहर का रंग:", ["लाल (Red)", "नीला (Blue)", "हरा (Green)"], horizontal=True, key="st_col")
+            color_map = {"लाल (Red)": (0.8, 0.0, 0.0), "नीला (Blue)": (0.0, 0.2, 0.75), "हरा (Green)": (0.0, 0.55, 0.15)}
+            s_color = color_map[stamp_color_choice]
+
+            auto_validate_stamp = st.checkbox("मुहर लगाने के साथ-साथ सिग्नेचर पर ग्रीन टिक (✔) भी लगाएं", value=True, key="st_val_chk")
+
+            if st.button("💮 प्रीव्यू देखें और स्टैम्प लगाएं", use_container_width=True, key="st_btn"):
+                out_stamp_doc = fitz.open("pdf", s_doc.tobytes())
+                
+                # 1. ग्रीन टिक लगाना
+                if auto_validate_stamp:
+                    for page in out_stamp_doc:
+                        widgets = list(page.widgets())
+                        for widget in widgets:
+                            if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                                rect = widget.rect
+                                page.delete_widget(widget)
+                                draw_green_tick_and_text(page, rect, s_name, s_desig, s_date, s_reason)
+
+                # 2. मुहर (Stamp) लगाना
+                f_page = out_stamp_doc[0]
+                pw = f_page.rect.width
+                s_rect = fitz.Rect(pw - 190, 25, pw - 25, 60)
+                
+                f_page.draw_rect(s_rect, color=s_color, width=2.0)
+                f_page.insert_textbox(s_rect, stamp_text.split("/")[0].strip(), fontsize=13, fontname="helv", color=s_color, align=1)
+                
+                st.session_state["stamped_pdf"] = out_stamp_doc.tobytes()
+
+            if "stamped_pdf" in st.session_state:
+                st.success("✅ स्टैम्प और वैलिडेटेड PDF तैयार है!")
+                
+                # लाइव प्रीव्यू दिखाने का बटन
+                if st.button("👁️ स्टैम्प वाली PDF का प्रीव्यू देखें", use_container_width=True, key="st_prev_btn"):
+                    prev_doc = fitz.open("pdf", st.session_state["stamped_pdf"])
+                    for i, page in enumerate(prev_doc):
+                        pix = page.get_pixmap(dpi=150)
+                        st.image(pix.tobytes("png"), caption=f"पेज {i+1} प्रीव्यू", use_container_width=True)
+
+                st.download_button(
+                    label="📥 स्टैम्प लगी हुई PDF डाउनलोड करें",
+                    data=st.session_state["stamped_pdf"],
+                    file_name="Stamped_" + stamp_file.name,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="st_dl"
+                )
