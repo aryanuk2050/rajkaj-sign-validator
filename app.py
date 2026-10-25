@@ -15,9 +15,8 @@ st.caption("राजकाज, ई-आधार व सभी प्रमा�
 # -------------------- SMART TEXT & SIGNATURE EXTRACTOR --------------------
 
 def extract_officer_details_from_pdf(doc):
-    """PDF के अंदर के टेक्स्ट से अधिकारी का नाम और पद ऑटोमैटिक खोजना"""
-    name = ""
-    designation = "जिला निर्वाचन अधिकारी\n(कलक्टर) जयपुर"
+    name = "संदेश नायक"
+    designation = "जिला निर्वाचन अधिकारी (पंचायत)\n(कलक्टर) जयपुर"
     date_str = "2026.10.01 14:07:22 IST"
     reason = "Approved"
 
@@ -25,7 +24,6 @@ def extract_officer_details_from_pdf(doc):
     for page in doc:
         full_text += page.get_text("text") + "\n"
 
-    # 1. ब्रैकेट के अंदर लिखे नाम को खोजना (जैसे (संदेश नायक))
     matches = re.findall(r'\n\s*\(([औ-ज्ञअ-ह0-9\s\.\,\-\(\)]+)\)\s*\n', full_text)
     for m in matches:
         cleaned = m.strip()
@@ -33,7 +31,6 @@ def extract_officer_details_from_pdf(doc):
             name = cleaned
             break
 
-    # 2. PDF के डिजिटल सिग्नेचर विजेट से Date और Reason निकालना
     for page in doc:
         for widget in page.widgets():
             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
@@ -47,10 +44,6 @@ def extract_officer_details_from_pdf(doc):
                 if date_match:
                     y, m, d, hh, mm, ss = date_match.groups()
                     date_str = f"{y}.{m}.{d} {hh}:{mm}:{ss} IST"
-
-    # यदि नाम न मिले तो डिफॉल्ट सेट करें
-    if not name:
-        name = "संदेश नायक"
 
     return name, designation, date_str, reason
 
@@ -99,11 +92,12 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     )
     shape.commit()
     
-    header_fontsize = h * 0.215
-    body_fontsize = h * 0.108
+    # फॉन्ट साइज को बिल्कुल सही और छोटा सेट किया गया है ताकि पूरा नाम व पद आसानी से फिट हो जाए
+    header_fontsize = h * 0.19
+    body_fontsize = h * 0.092
     
     page.insert_text(
-        fitz.Point(x0 + 2, y0 + h * 0.23),
+        fitz.Point(x0 + 2, y0 + h * 0.20),
         "Signature valid",
         fontsize=header_fontsize,
         fontname="helv",
@@ -120,8 +114,8 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     if reason:
         raw_lines.append(f"Reason: {reason}")
         
-    start_y = y0 + h * 0.395
-    line_gap = body_fontsize * 1.18
+    start_y = y0 + h * 0.35
+    line_gap = body_fontsize * 1.15
     for i, line in enumerate(raw_lines):
         page.insert_text(
             fitz.Point(x0 + 2, start_y + i * line_gap),
@@ -224,7 +218,6 @@ with tab1:
                     st.error("❌ गलत पासवर्ड! कृपया सही पासवर्ड डालें।")
 
         if unlocked:
-            # ऑटो-डिटेक्टेड डिटेल्स निकालना
             auto_name, auto_desig, auto_date, auto_reason = extract_officer_details_from_pdf(doc)
 
             st.success(f"✨ **ऑटो-डिटेक्टेड अधिकारी:** `{auto_name}`")
