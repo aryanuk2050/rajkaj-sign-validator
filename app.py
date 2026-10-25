@@ -396,7 +396,6 @@ with tab3:
                 new_doc = fitz.open()
                 for page in c_doc:
                     pix = page.get_pixmap(dpi=100)
-                    img_pdf = fitz.open("pdf", pix.pdfocr_tobytes() if hasattr(pix, "pdfocr_tobytes") else fitz.open())
                     new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
                     new_page.insert_image(page.rect, stream=pix.tobytes("jpeg"))
                 comp_bytes = new_doc.tobytes(garbage=4, deflate=True)
@@ -433,7 +432,7 @@ with tab3:
 # ==================== TAB 4: ID CARD CROPPER & OFFICE STAMP ====================
 with tab4:
     st.subheader("🪪 1. पीवीसी कार्ड क्रॉपर (e-Aadhaar / Jan-Aadhaar Card Size)")
-    st.caption("A4 साइज के दस्तावेज़ से केवल नीचे वाला कार्ड हिस्सा काटकर अलग करें।")
+    st.caption("A4 साइज के दस्तावेज़ से केवल नीचे वाला कार्ड हिस्सा काटकर अलग करें (और सिग्नेचर पर ग्रीन टिक भी लगाएं)।")
     card_file = st.file_uploader("कार्ड क्रॉप करने के लिए PDF चुनें", type=["pdf"], key="card_pdf")
     
     if card_file:
@@ -448,18 +447,37 @@ with tab4:
 
         if pwd_ok:
             crop_ratio = st.slider("नीचे से कार्ड की ऊंचाई का हिस्सा चुनें (%):", 20, 50, 31)
+            auto_tick = st.checkbox("कार्ड पर मौजूद डिजिटल सिग्नेचर (?) को भी ग्रीन टिक (✔) में बदलें", value=True)
+            
             if st.button("✂️ कार्ड क्रॉप करें और प्रीव्यू देखें", use_container_width=True):
+                # 1. यदि कार्ड पर सिग्नेचर है तो उस पर भी ग्रीन टिक लगा दें
+                if auto_tick:
+                    for page in c_doc:
+                        for widget in list(page.widgets()):
+                            if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
+                                ext = extract_signer_from_pdf_bytes(c_doc, widget.xref)
+                                s_name = ext.get("name") or "Unique Identification Authority of India"
+                                s_desig = f"Location: {ext['location']}" if ext.get("location") else (f"Designation : {ext['designation']}" if ext.get("designation") else "")
+                                s_date = ext.get("date") or ""
+                                s_reason = ext.get("reason") or ""
+                                rect = widget.rect
+                                page.delete_widget(widget)
+                                draw_green_tick_and_text(page, rect, s_name, s_desig, s_date, s_reason)
+
+                # 2. बिना किसी एरर के सुरक्षित तरीके से कार्ड क्रॉप करना
                 page = c_doc[0]
                 r = page.rect
-                crop_rect = fitz.Rect(r.x0 + 15, r.y1 * (1 - crop_ratio / 100.0), r.x1 - 15, r.y1 - 12)
+                top_y = r.y0 + r.height * (1.0 - (crop_ratio / 100.0))
+                crop_rect = fitz.Rect(r.x0 + 12, top_y, r.x1 - 12, r.y1 - 10)
+                
+                # केवल क्लिप किए गए हिस्से का हाई-क्वालिटी प्रीव्यू दिखाना
+                pix = page.get_pixmap(dpi=200, clip=crop_rect)
+                st.image(pix.tobytes("png"), caption="क्रॉप किया गया पीवीसी कार्ड", use_container_width=True)
+                
+                # पेज का CropBox सेट करके सीधे नई PDF सेव करना (इससे ValueError कभी नहीं आएगा)
                 page.set_cropbox(crop_rect)
-                
-                pix = page.get_pixmap(dpi=200)
-                st.image(pix.tobytes("png"), caption="क्रॉप किया गया कार्ड", use_container_width=True)
-                
                 out_card = fitz.open()
-                out_page = out_card.new_page(width=crop_rect.width, height=crop_rect.height)
-                out_page.show_pdf_page(out_page.rect, c_doc, 0, clip=crop_rect)
+                out_card.insert_pdf(c_doc, from_page=0, to_page=0)
                 
                 st.download_button(
                     label="📥 PVC कार्ड PDF डाउनलोड करें",
