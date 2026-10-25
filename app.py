@@ -92,12 +92,12 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     )
     shape.commit()
     
-    # फॉन्ट साइज को बिल्कुल सही और छोटा सेट किया गया है ताकि पूरा नाम व पद आसानी से फिट हो जाए
-    header_fontsize = h * 0.19
-    body_fontsize = h * 0.092
+    # फॉन्ट साइज और लाइन स्पेसिंग को एकदम संतुलित किया गया है
+    header_fontsize = h * 0.18
+    body_fontsize = h * 0.082
     
     page.insert_text(
-        fitz.Point(x0 + 2, y0 + h * 0.20),
+        fitz.Point(x0 + 2, y0 + h * 0.19),
         "Signature valid",
         fontsize=header_fontsize,
         fontname="helv",
@@ -114,8 +114,8 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     if reason:
         raw_lines.append(f"Reason: {reason}")
         
-    start_y = y0 + h * 0.35
-    line_gap = body_fontsize * 1.15
+    start_y = y0 + h * 0.33
+    line_gap = body_fontsize * 1.12
     for i, line in enumerate(raw_lines):
         page.insert_text(
             fitz.Point(x0 + 2, start_y + i * line_gap),
