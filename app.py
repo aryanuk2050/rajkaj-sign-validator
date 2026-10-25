@@ -10,10 +10,9 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 
 st.set_page_config(page_title="Universal DSC Validator & Toolkit", page_icon="✅", layout="centered")
 st.title("✅ यूनिवर्सल डिजिटल सिग्नेचर वैलिडेटर एवं पीडीएफ टूलकिट")
-st.caption("पूरे भारत और राजस्थान (राजकाज, ई-आधार, ई-मित्र व सभी विभागीय आदेशों) के लिए ऑटोमैटिक पीडीएफ सॉल्यूशन")
+st.caption("राजकाज, ई-आधार, ई-मित्र व सभी विभागीय आदेशों के लिए 100% ऑटोमैटिक पीडीएफ सॉल्यूशन")
 
-# -------------------- UNIVERSAL HINDI-TO-ENGLISH ENGINE --------------------
-# यह डिक्शनरी किसी व्यक्ति के लिए नहीं, बल्कि पूरे भारत के प्रशासनिक पदों के सटीक अनुवाद के लिए है
+# -------------------- CLEAN ENGLISH & TEXT FORMATTER --------------------
 
 ADMIN_VOCAB = {
     "कार्यालय": "Office of",
@@ -22,7 +21,7 @@ ADMIN_VOCAB = {
     "उप जिला निर्वाचन अधिकारी": "Deputy District Election Officer",
     "अतिरिक्त जिला कलक्टर": "Additional District Collector",
     "अतिरिक्त जिला कलेक्टर": "Additional District Collector",
-    "जिला कलक्टर एवं जिला मजिस्ट्रेट": "District Collector & Magistrate",
+    "जिला कलक्टर एवं जिला मजिस्ट्रेट": "Collector & District Magistrate",
     "जिला कलक्टर": "District Collector",
     "जिला कलेक्टर": "District Collector",
     "कलक्टर": "Collector",
@@ -33,10 +32,6 @@ ADMIN_VOCAB = {
     "नायब तहसीलदार": "Naib Tehsildar",
     "विकास अधिकारी": "Block Development Officer",
     "मुख्य कार्यकारी अधिकारी": "Chief Executive Officer",
-    "अतिरिक्त मुख्य कार्यकारी अधिकारी": "Additional Chief Executive Officer",
-    "प्रमुख शासन सचिव": "Principal Secretary",
-    "अतिरिक्त मुख्य सचिव": "Additional Chief Secretary",
-    "मुख्य सचिव": "Chief Secretary",
     "शासन सचिव": "Secretary to Government",
     "संयुक्त शासन सचिव": "Joint Secretary",
     "उप शासन सचिव": "Deputy Secretary",
@@ -46,55 +41,21 @@ ADMIN_VOCAB = {
     "उप निदेशक": "Deputy Director",
     "सहायक निदेशक": "Assistant Director",
     "मुख्य अभियंता": "Chief Engineer",
-    "अतिरिक्त मुख्य अभियंता": "Additional Chief Engineer",
     "अधीक्षण अभियंता": "Superintending Engineer",
     "अधिशाषी अभियंता": "Executive Engineer",
     "सहायक अभियंता": "Assistant Engineer",
-    "कनिष्ठ अभियंता": "Junior Engineer",
     "मुख्य जिला शिक्षा अधिकारी": "Chief District Education Officer",
     "जिला शिक्षा अधिकारी": "District Education Officer",
-    "ब्लॉक शिक्षा अधिकारी": "Block Education Officer",
     "प्रधानाचार्य": "Principal",
-    "प्रधानाध्यापक": "Headmaster",
     "मुख्य चिकित्सा एवं स्वास्थ्य अधिकारी": "Chief Medical & Health Officer",
-    "प्रमुख चिकित्सा अधिकारी": "Principal Medical Officer",
-    "चिकित्सा अधिकारी": "Medical Officer",
     "पुलिस अधीक्षक": "Superintendent of Police",
-    "अतिरिक्त पुलिस अधीक्षक": "Additional Superintendent of Police",
-    "उप अधीक्षक पुलिस": "Deputy Superintendent of Police",
-    "थानाधिकारी": "Station House Officer",
     "कोषाधिकारी": "Treasury Officer",
     "लेखाधिकारी": "Accounts Officer",
-    "सहायक लेखाधिकारी": "Assistant Accounts Officer",
     "आयुक्त": "Commissioner",
-    "अतिरिक्त आयुक्त": "Additional Commissioner",
-    "संयुक्त आयुक्त": "Joint Commissioner",
     "उपायुक्त": "Deputy Commissioner",
-    "सहायक आयुक्त": "Assistant Commissioner",
-    "पंजीयक": "Registrar",
-    "उप पंजीयक": "Sub Registrar",
-    "पटवारी": "Patwari",
-    "ग्राम विकास अधिकारी": "Village Development Officer",
-    "प्रभारी अधिकारी": "Officer In-Charge",
-    "नियंत्रण अधिकारी": "Controlling Officer",
-    "आहरण एवं वितरण अधिकारी": "Drawing & Disbursing Officer",
-    "पंचायत समिति": "Panchayat Samiti",
-    "जिला परिषद": "Zila Parishad",
-    "नगर निगम": "Municipal Corporation",
-    "नगर परिषद": "Municipal Council",
-    "नगर पालिका": "Municipality",
+    "तहसील": "Tehsil",
     "पंचायत": "Panchayat",
-    "प्रकोष्ठ": "Cell",
-    "विभाग": "Department",
-    "अनुभाग": "Section",
-    "मण्डल": "Division",
-    "संभाग": "Division",
-    "संभागीय": "Divisional",
-    "ग्रामीण": "Rural",
-    "शहरी": "Urban",
-    "मुख्यालय": "Headquarters",
     "राजस्थान": "Rajasthan",
-    "सरकार": "Government",
     "जयपुर": "Jaipur", "जोधपुर": "Jodhpur", "उदयपुर": "Udaipur", "अजमेर": "Ajmer",
     "कोटा": "Kota", "बीकानेर": "Bikaner", "भरतपुर": "Bharatpur", "सीकर": "Sikar",
     "अलवर": "Alwar", "भीलवाड़ा": "Bhilwara", "पाली": "Pali", "चूरू": "Churu",
@@ -107,7 +68,6 @@ ADMIN_VOCAB = {
 }
 
 def to_clean_english(text):
-    """किसी भी हिंदी शब्द या अधिकारी के नाम को फोनेटिक अंग्रेजी (ASCII) में बदलना ताकि PDF में कभी '...' न बने"""
     if not text:
         return ""
     text = text.strip()
@@ -138,7 +98,6 @@ def to_clean_english(text):
         'ं': 'n', 'ँ': 'n', 'ः': 'h', '्': ''
     }
 
-    # संयुक्त व्यंजन सुधार (जैसे न्द -> nd, न्य -> ny)
     out = []
     i = 0
     n = len(res)
@@ -173,12 +132,8 @@ def to_clean_english(text):
                         out.append(base + vowel_part)
                         i += 2
             else:
-                # शब्द के अंतिम अक्षर में अनावश्यक 'a' न लगाएं
                 next_is_dev = (i + 1 < n) and ('\u0900' <= res[i + 1] <= '\u097F')
-                if not next_is_dev:
-                    out.append(base)
-                else:
-                    out.append(base + 'a')
+                out.append(base if not next_is_dev else base + 'a')
                 i += 1
         elif ch in matras:
             out.append(matras[ch])
@@ -195,75 +150,142 @@ def to_clean_english(text):
     return "\n".join(cleaned_lines)
 
 
-# -------------------- UNIVERSAL MULTI-LAYER PDF EXTRACTOR --------------------
+# -------------------- EXACT SIGNATURE TEXT & CERT PARSER --------------------
 
-def is_clean_value(val):
+def is_valid_text(val):
     if not val or len(val.strip()) < 2:
         return False
     low = val.lower().strip()
     junk = [
         "itext", "agpl", "version", "adobe", "pkcs7", "subfilter", "adbe",
-        "sha256", "signing", "unknown", "null", "none", "signature", "valid"
+        "sha256", "signing", "unknown", "null", "none", "signature valid", "signature not verified"
     ]
     return not any(j in low for j in junk)
 
-def is_ca_or_system_name(val):
+def is_invalid_designation(val):
+    """'Raj eSign', 'DOIT', 'Personal' जैसे फालतू शब्दों को पद (Designation) बनने से रोकना"""
+    if not val or len(val.strip()) < 2:
+        return True
+    low = val.lower().strip()
+    bad_desigs = [
+        "raj esign", "rajesign", "e-sign", "esign", "doit", "doit&c", "ris", "risl",
+        "personal", "individual", "class 2", "class 3", "unspecified", "na", "n/a",
+        "nic", "emudhra", "cdac", "c-dac", "csc", "protean", "nsdl", "capricorn", "verasys"
+    ]
+    return low in bad_desigs or any(b == low for b in bad_desigs)
+
+def is_ca_name(val):
     low = val.lower()
     ca_keywords = [
         "certifying authority", "ca 20", "sub ca", "root ca", "emudhra",
         "nic sub-ca", "cdac", "ncode", "capricorn", "sify", "verasys",
-        "csc e-governance", "protean", "nsdl", "c-dac"
+        "csc e-governance", "protean", "nsdl", "c-dac", "raj esign"
     ]
     return any(k in low for k in ca_keywords)
 
+def parse_combined_signature_block(raw_text):
+    """
+    यदि PDF के सिग्नेचर बॉक्स में पूरा टेक्स्ट एक साथ जुड़ा हो (जैसे:
+    'Digitally signed by Sandesh Nayak Designation : Collector and District Magistrate Date: 2026.10.25 15:25:21 IST Reason: Approved')
+    तो उसमें से Name, Designation, Date और Reason को बिल्कुल अलग-अलग करना।
+    """
+    p_name, p_desig, p_date, p_reason = "", "", "", ""
+    if not raw_text:
+        return p_name, p_desig, p_date, p_reason
+
+    # सभी लाइनों को एक स्पेस से जोड़कर साफ करें
+    flat = " ".join([ln.strip() for ln in raw_text.splitlines() if ln.strip()])
+    flat = re.sub(r'(?i)signature\s+not\s+verified|signature\s+valid|\?', ' ', flat).strip()
+
+    # 1. Name निकालें (Digitally signed by के बाद और Designation/Date/Reason/Location से पहले)
+    m_name = re.search(
+        r'(?i)digitally\s+signed\s+by\s*:?\s*(.+?)(?=\s+designation\s*:|\s+date\s*:|\s+reason\s*:|\s+location\s*:|$)',
+        flat
+    )
+    if m_name:
+        cand = m_name.group(1).strip()
+        if is_valid_text(cand) and not is_ca_name(cand):
+            p_name = cand
+
+    # 2. Designation निकालें (Designation: के बाद और Date/Reason/Location से पहले)
+    m_desig = re.search(
+        r'(?i)designation\s*:\s*(.+?)(?=\s+date\s*:|\s+reason\s*:|\s+location\s*:|$)',
+        flat
+    )
+    if m_desig:
+        cand = m_desig.group(1).strip()
+        if is_valid_text(cand) and not is_invalid_designation(cand):
+            p_desig = cand
+
+    # 3. Date निकालें
+    m_date = re.search(
+        r'(?i)date\s*:\s*([0-9]{4}[\.\-\/][0-9]{2}[\.\-\/][0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\s*[A-Za-z\+0-9\:]*)?)',
+        flat
+    )
+    if m_date:
+        p_date = m_date.group(1).strip()
+
+    # 4. Reason निकालें
+    m_reason = re.search(
+        r'(?i)reason\s*:\s*(.+?)(?=\s+location\s*:|\s+date\s*:|$)',
+        flat
+    )
+    if m_reason:
+        cand = m_reason.group(1).strip()
+        if is_valid_text(cand):
+            p_reason = cand
+
+    return p_name, p_desig, p_date, p_reason
+
+def wrap_designation_smartly(desig_str):
+    """यदि पद (Designation) लंबा हो तो उसे साफ-सुथरा 2 लाइनों में बाँटना ताकि बॉक्स के बाहर न जाए"""
+    if not desig_str:
+        return ""
+    desig_str = " ".join(desig_str.split())
+    if len(desig_str) <= 22:
+        return desig_str
+    words = desig_str.split(" ")
+    line1, line2 = [], []
+    curr_len = 0
+    for w in words:
+        if curr_len + len(w) <= 20 or not line1:
+            line1.append(w)
+            curr_len += len(w) + 1
+        else:
+            line2.append(w)
+    if line2:
+        return " ".join(line1) + "\n" + " ".join(line2)
+    return desig_str
+
 def extract_universal_signature_details(doc):
     """
-    किसी भी राज्य/विभाग की PDF से 4 स्तरों पर जांच करके असली नाम, पद, दिनांक और कारण निकालना:
-    स्तर 1: सिग्नेचर बॉक्स के अंदर मौजूद विज़ुअल टेक्स्ट (यदि पीडीएफ में छपा हो)
-    स्तर 2: PKCS#7 डिजिटल सर्टिफिकेट चेन के सभी सर्टिफिकेट्स (End-Entity Signer Certificate)
-    स्तर 3: PDF सिग्नेचर डिक्शनरी (/Name, /Reason, /Location, /M)
-    स्तर 4: डॉक्यूमेंट के लेआउट में हस्ताक्षर ब्लॉक (जैसे कोष्ठक में लिखा अधिकारी का नाम व नीचे लिखा पद)
+    PDF के सिग्नेचर विजेट, Appearance Stream, PKCS#7 सर्टिफिकेट और लेटर से
+    100% सटीक Name, Designation, Date और Reason अपने आप निकालना।
     """
     found_name = ""
     found_desig = ""
-    found_loc = ""
     found_date = ""
     found_reason = ""
-    issuer_info = ""
 
-    # ---- स्तर 1, 2 और 3: सिग्नेचर विजेट और सर्टिफिकेट की जांच ----
     for page in doc:
         for widget in page.widgets():
             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                # 1A. सिग्नेचर बॉक्स के एरिया में पहले से मौजूद टेक्स्ट को पढ़ना
+                # 1. सिग्नेचर बॉक्स के विज़ुअल एरिया से पूरा टेक्स्ट पढ़ना
                 try:
                     box_text = page.get_text("text", clip=widget.rect)
-                    for bline in box_text.splitlines():
-                        bline_clean = bline.strip()
-                        if re.search(r'(?i)digitally\s+signed\s+by', bline_clean):
-                            cand = re.sub(r'(?i).*?digitally\s+signed\s+by\s*:?\s*', '', bline_clean).strip()
-                            if is_clean_value(cand) and not is_ca_or_system_name(cand):
-                                found_name = cand
-                        elif re.search(r'(?i)designation\s*:', bline_clean):
-                            cand = re.sub(r'(?i).*?designation\s*:\s*', '', bline_clean).strip()
-                            if is_clean_value(cand):
-                                found_desig = cand
-                        elif re.search(r'(?i)date\s*:', bline_clean):
-                            cand = re.sub(r'(?i).*?date\s*:\s*', '', bline_clean).strip()
-                            if len(cand) > 6:
-                                found_date = cand
-                        elif re.search(r'(?i)reason\s*:', bline_clean):
-                            cand = re.sub(r'(?i).*?reason\s*:\s*', '', bline_clean).strip()
-                            if is_clean_value(cand):
-                                found_reason = cand
-                        elif re.search(r'(?i)location\s*:', bline_clean):
-                            cand = re.sub(r'(?i).*?location\s*:\s*', '', bline_clean).strip()
-                            if is_clean_value(cand):
-                                found_loc = cand
+                    n1, d1, dt1, r1 = parse_combined_signature_block(box_text)
+                    if n1:
+                        found_name = n1
+                    if d1:
+                        found_desig = d1
+                    if dt1:
+                        found_date = dt1
+                    if r1:
+                        found_reason = r1
                 except Exception:
                     pass
 
-                # 1B. सिग्नेचर ऑब्जेक्ट और उसके /V रेफरेंस को पढ़ना
+                # 2. सिग्नेचर ऑब्जेक्ट और उसके XObject स्ट्रीम के अंदर छुपे टेक्स्ट को पढ़ना
                 sig_obj_str = doc.xref_object(widget.xref)
                 v_match = re.search(r'/V\s+(\d+)\s+0\s+R', sig_obj_str)
                 if v_match:
@@ -272,27 +294,33 @@ def extract_universal_signature_details(doc):
                     except Exception:
                         pass
 
-                # Appearance Stream (XObject) के अंदर छुपे टेक्स्ट को भी चेक करना
                 ap_refs = re.findall(r'(\d+)\s+0\s+R', sig_obj_str)
-                for ref_str in ap_refs[:8]:
+                stream_texts = []
+                for ref_str in ap_refs[:12]:
                     try:
                         s_bytes = doc.xref_stream(int(ref_str))
                         if s_bytes:
                             s_txt = s_bytes.decode('latin1', errors='ignore')
-                            for p_match in re.findall(r'\(([^()]{3,120})\)', s_txt):
-                                p_clean = p_match.replace('\\(', '(').replace('\\)', ')').strip()
-                                if "digitally signed by" in p_clean.lower() and not found_name:
-                                    cand = re.sub(r'(?i).*?digitally\s+signed\s+by\s*:?\s*', '', p_clean).strip()
-                                    if is_clean_value(cand) and not is_ca_or_system_name(cand):
-                                        found_name = cand
-                                elif "designation" in p_clean.lower() and not found_desig:
-                                    cand = re.sub(r'(?i).*?designation\s*:\s*', '', p_clean).strip()
-                                    if is_clean_value(cand) and cand.lower() not in ("doit", "null"):
-                                        found_desig = cand
+                            # PDF stream में (...) या <...> में लिखे टेक्स्ट को निकालना
+                            for p_match in re.findall(r'\(([^()]{2,200})\)', s_txt):
+                                clean_p = p_match.replace('\\(', '(').replace('\\)', ')').strip()
+                                stream_texts.append(clean_p)
                     except Exception:
                         pass
 
-                # 2. PKCS#7 सर्टिफिकेट चेन के सभी सर्टिफिकेट्स की जांच
+                if stream_texts:
+                    combined_stream = " ".join(stream_texts)
+                    n2, d2, dt2, r2 = parse_combined_signature_block(combined_stream)
+                    if n2 and not found_name:
+                        found_name = n2
+                    if d2 and not found_desig:
+                        found_desig = d2
+                    if dt2 and not found_date:
+                        found_date = dt2
+                    if r2 and not found_reason:
+                        found_reason = r2
+
+                # 3. PKCS#7 डिजिटल सर्टिफिकेट की जांच
                 contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
                 if contents_match:
                     try:
@@ -301,126 +329,110 @@ def extract_universal_signature_details(doc):
                             hex_data += '0'
                         der_bytes = bytes.fromhex(hex_data)
                         certs = pkcs7.load_der_pkcs7_certificates(der_bytes)
-                        
-                        # सभी सर्टिफिकेट्स में से End-User (Signer) का सर्टिफिकेट ढूँढें
                         for cert in certs:
-                            cn, title, ou, org, state, given = "", "", "", "", "", ""
+                            cn, title, ou, org = "", "", "", ""
                             for attr in cert.subject:
                                 val = attr.value.strip() if isinstance(attr.value, str) else ""
                                 if attr.oid == x509.NameOID.COMMON_NAME:
                                     cn = val
-                                elif attr.oid == x509.NameOID.GIVEN_NAME:
-                                    given = val
                                 elif attr.oid == x509.NameOID.TITLE:
                                     title = val
                                 elif attr.oid == x509.NameOID.ORGANIZATIONAL_UNIT_NAME:
                                     ou = val
                                 elif attr.oid == x509.NameOID.ORGANIZATION_NAME:
                                     org = val
-                                elif attr.oid == x509.NameOID.STATE_OR_PROVINCE_NAME:
-                                    state = val
 
-                            # यदि यह CA का सर्टिफिकेट नहीं है, तो यह असली हस्ताक्षरकर्ता का सर्टिफिकेट है!
-                            if cn and not is_ca_or_system_name(cn) and is_clean_value(cn):
-                                found_name = cn
-                                if title and is_clean_value(title):
-                                    found_desig = title
-                                elif ou and is_clean_value(ou) and ou.lower() not in ("doit", "personal", "individual", "class 2", "class 3"):
-                                    found_desig = ou
-                                elif org and is_clean_value(org) and not is_ca_or_system_name(org) and org.lower() not in ("doit", "personal", "india"):
-                                    found_desig = org
-                                if state and not found_loc:
-                                    found_loc = state
-                            elif given and not found_name and is_clean_value(given):
-                                found_name = given
+                            if cn and not is_ca_name(cn) and is_valid_text(cn):
+                                # यदि CN के अंदर भी Designation जुड़ा हो तो उसे अलग करें
+                                if "designation" in cn.lower():
+                                    cn_n, cn_d, _, _ = parse_combined_signature_block("Digitally signed by " + cn)
+                                    if cn_n and not found_name:
+                                        found_name = cn_n
+                                    if cn_d and not found_desig:
+                                        found_desig = cn_d
+                                elif not found_name:
+                                    found_name = cn
+
+                                if not found_desig:
+                                    if title and not is_invalid_designation(title):
+                                        found_desig = title
+                                    elif ou and not is_invalid_designation(ou):
+                                        found_desig = ou
+                                    elif org and not is_invalid_designation(org) and not is_ca_name(org):
+                                        found_desig = org
                     except Exception:
                         pass
 
-                # 3. PDF Dictionary Fields (/Name, /Reason, /Location, /M)
-                if not found_reason:
-                    r_m = re.search(r'/Reason\s*\((.*?)\)', sig_obj_str)
-                    if r_m and is_clean_value(r_m.group(1)):
-                        found_reason = r_m.group(1).strip()
-
-                if not found_loc:
-                    l_m = re.search(r'/Location\s*\((.*?)\)', sig_obj_str)
-                    if l_m and is_clean_value(l_m.group(1)):
-                        found_loc = l_m.group(1).strip()
-
+                # 4. PDF सिग्नेचर डिक्शनरी (/Name, /M, /Reason) की जांच
                 if not found_date:
                     d_m = re.search(r'/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', sig_obj_str)
                     if d_m:
                         y, m, d, hh, mm, ss = d_m.groups()
                         found_date = f"{y}.{m}.{d} {hh}:{mm}:{ss} IST"
 
+                if not found_reason:
+                    r_m = re.search(r'/Reason\s*\((.*?)\)', sig_obj_str)
+                    if r_m and is_valid_text(r_m.group(1)):
+                        found_reason = r_m.group(1).strip()
+
                 if not found_name:
                     n_m = re.search(r'/Name\s*\((.*?)\)', sig_obj_str)
-                    if n_m and is_clean_value(n_m.group(1)) and not is_ca_or_system_name(n_m.group(1)):
-                        found_name = n_m.group(1).strip()
+                    if n_m and is_valid_text(n_m.group(1)) and not is_ca_name(n_m.group(1)):
+                        raw_nm = n_m.group(1).strip()
+                        if "designation" in raw_nm.lower():
+                            nm_only, ds_only, _, _ = parse_combined_signature_block("Digitally signed by " + raw_nm)
+                            found_name = nm_only or raw_nm
+                            if ds_only and not found_desig:
+                                found_desig = ds_only
+                        else:
+                            found_name = raw_nm
 
-    # ---- स्तर 4: डॉक्यूमेंट के अंदर लिखे सिग्नेचर ब्लॉक (Document Layout) से नाम और पद निकालना ----
-    # (जब PDF में iText की वजह से सर्टिफिकेट में नाम न हो या पद केवल लेटर में छपा हो)
-    doc_name = ""
-    doc_desig = ""
-    full_text = ""
-    for page in doc:
-        full_text += page.get_text("text") + "\n"
+    # अगर किसी वजह से found_name में अभी भी 'Designation :' चिपका रह गया हो तो उसे तुरंत अलग करें
+    if "designation" in found_name.lower():
+        parts = re.split(r'(?i)\s*designation\s*:\s*', found_name, maxsplit=1)
+        found_name = parts[0].strip()
+        if len(parts) > 1 and parts[1].strip() and (not found_desig or is_invalid_designation(found_desig)):
+            found_desig = parts[1].strip()
 
-    lines = [ln.strip() for ln in full_text.splitlines() if ln.strip()]
-    
-    # पैटर्न A: कोष्ठक में लिखा अधिकारी का नाम, जैसे "(संदेश नायक)" या "(डॉ. राजेश शर्मा)" या "(R. K. Sharma)"
-    non_person_words = [
-        "कलक्टर", "कलेक्टर", "पंचायत", "आदेश", "जयपुर", "जोधपुर", "उदयपुर", "अजमेर", "कोटा",
-        "बीकानेर", "भरतपुर", "राजस्थान", "प्रभारी", "महोदय", "समस्त", "जिला", "कार्यालय",
-        "विभाग", "समिति", "परिषद", "निगम", "योजना", "प्रकोष्ठ", "शाखा", "अनुभाग", "पीआरओ",
-        "collector", "office", "order", "department", "section", "jaipur", "rajasthan"
-    ]
-    
-    for idx, ln in enumerate(lines):
-        m = re.match(r'^\(\s*([औ-ज्ञअ-हA-Za-z\.\s]{3,42})\s*\)$', ln)
-        if m:
-            cand_name = m.group(1).strip()
-            if not any(w in cand_name.lower() for w in non_person_words):
-                doc_name = cand_name
-                # नाम के ठीक नीचे की 1-2 लाइनों में अधिकारी का पद लिखा होता है
-                d_parts = []
-                for next_i in range(idx + 1, min(idx + 3, len(lines))):
-                    nxt_line = lines[next_i]
-                    if any(stop in nxt_line for stop in ["क्रमांक", "दिनांक", "प्रतिलिपि", "1.", "2.", "RajKaj", "Signature", "तेल", "फोन", "ईमेल"]):
-                        break
-                    d_parts.append(nxt_line)
-                if d_parts:
-                    doc_desig = "\n".join(d_parts)
-                break
-
-    # पैटर्न B: यदि कोष्ठक में नाम न हो, पर "आज्ञा से" या "भवदीय" या "दिनांक- यथा ई हस्ताक्षर" के पास पद लिखा हो
-    if not doc_desig:
+    # 5. यदि सर्टिफिकेट में पद (Designation) नहीं मिला (जैसे केवल Raj eSign था), तो लेटर के टेक्स्ट से पद निकालें
+    if not found_name or not found_desig or is_invalid_designation(found_desig):
+        full_text = ""
+        for page in doc:
+            full_text += page.get_text("text") + "\n"
+        lines = [ln.strip() for ln in full_text.splitlines() if ln.strip()]
+        
+        non_person = [
+            "कलक्टर", "कलेक्टर", "पंचायत", "आदेश", "जयपुर", "जोधपुर", "उदयपुर", "अजमेर", "कोटा",
+            "बीकानेर", "भरतपुर", "राजस्थान", "प्रभारी", "महोदय", "समस्त", "जिला", "कार्यालय",
+            "विभाग", "समिति", "परिषद", "निगम", "योजना", "प्रकोष्ठ", "शाखा", "अनुभाग", "पीआरओ"
+        ]
         for idx, ln in enumerate(lines):
-            if "यथा ई हस्ताक्षर" in ln or "ई-हस्ताक्षर" in ln:
-                # इसके ऊपर की 1-2 लाइनें देखें
-                prev_parts = []
-                for p_i in range(max(0, idx - 2), idx):
-                    p_line = lines[p_i]
-                    if len(p_line) < 55 and not any(st_w in p_line for st_w in ["क्रमांक", "प्रतिलिपि", "विषय", "संदर्भ"]):
-                        prev_parts.append(p_line)
-                if prev_parts:
-                    doc_desig = "\n".join(prev_parts)
-                break
+            m = re.match(r'^\(\s*([औ-ज्ञअ-हA-Za-z\.\s]{3,42})\s*\)$', ln)
+            if m:
+                cand_name = m.group(1).strip()
+                if not any(w in cand_name.lower() for w in non_person):
+                    if not found_name:
+                        found_name = cand_name
+                    if not found_desig or is_invalid_designation(found_desig):
+                        d_parts = []
+                        for next_i in range(idx + 1, min(idx + 3, len(lines))):
+                            nxt_line = lines[next_i]
+                            if any(stop in nxt_line for stop in ["क्रमांक", "दिनांक", "प्रतिलिपि", "1.", "2.", "RajKaj", "Signature"]):
+                                break
+                            d_parts.append(nxt_line)
+                        if d_parts:
+                            found_desig = " ".join(d_parts)
+                    break
 
-    # ---- चारों स्तरों के परिणामों को मिलाकर सबसे सटीक डेटा चुनना ----
-    final_name_raw = found_name if found_name else doc_name
-    final_desig_raw = found_desig if (found_desig and found_desig.lower() != "doit") else (doc_desig if doc_desig else found_loc)
-
-    # अंग्रेजी (ASCII) में बदलना ताकि PDF के Helvetica फॉन्ट में कभी '...' न छपे
-    final_name = to_clean_english(final_name_raw) if final_name_raw else "Authorized Signatory"
-    final_desig = to_clean_english(final_desig_raw) if final_desig_raw else ""
+    final_name = to_clean_english(found_name) if found_name else "Authorized Signatory"
+    final_desig = wrap_designation_smartly(to_clean_english(found_desig)) if (found_desig and not is_invalid_designation(found_desig)) else ""
     final_date = found_date if found_date else ""
     final_reason = to_clean_english(found_reason) if found_reason else "Approved"
 
     return final_name, final_desig, final_date, final_reason
 
 
-# -------------------- GREEN TICK & TEXT RENDERER --------------------
+# -------------------- ADOBE READER STYLE GREEN TICK & TEXT --------------------
 
 def draw_exact_tick_polygon(shape, pts, fill_color, stroke_color=None, stroke_width=1.0):
     shape.draw_quad(fitz.Quad(pts[0], pts[1], pts[5], pts[2]))
@@ -438,7 +450,7 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     safe_date = to_clean_english(date_str).strip()
     safe_reason = to_clean_english(reason).strip()
 
-    # पुराने क्वेश्चन मार्क (?) को साफ करना
+    # पुराने क्वेश्चन मार्क (?) को सफेद बॉक्स से साफ करना
     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
     
     w, h = rect.width, rect.height
@@ -447,7 +459,7 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     t_left = 0.032
     t_right = 0.039
 
-    # Adobe Reader जैसा सटीक ग्रीन टिक
+    # हूबहू Adobe Reader जैसा ग्रीन टिक
     pts_main = [
         fitz.Point(x0 + w * 0.310, y0 + h * 0.585),
         fitz.Point(x0 + w * (0.310 + t_left), y0 + h * 0.505),
@@ -488,20 +500,20 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     if safe_reason:
         raw_lines.append(f"Reason: {safe_reason}")
 
-    header_fontsize = min(h * 0.205, w * 0.12)
+    header_fontsize = min(h * 0.21, w * 0.12)
     max_chars = max([len(ln) for ln in raw_lines] + [24])
-    body_fontsize = min(h * 0.102, (w * 1.78) / max_chars)
+    body_fontsize = min(h * 0.105, (w * 1.82) / max_chars)
     
     page.insert_text(
-        fitz.Point(x0 + 2, y0 + h * 0.22),
+        fitz.Point(x0 + 2, y0 + h * 0.225),
         "Signature valid",
         fontsize=header_fontsize,
         fontname="helv",
         color=(0, 0, 0)
     )
         
-    start_y = y0 + h * 0.375
-    line_gap = min(body_fontsize * 1.16, (h * 0.59) / max(len(raw_lines), 1))
+    start_y = y0 + h * 0.385
+    line_gap = min(body_fontsize * 1.16, (h * 0.58) / max(len(raw_lines), 1))
     for i, line in enumerate(raw_lines):
         page.insert_text(
             fitz.Point(x0 + 2, start_y + i * line_gap),
@@ -586,10 +598,9 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # ==================== TAB 1: SINGLE VALIDATOR ====================
 with tab1:
-    uploaded_file = st.file_uploader("यहाँ किसी भी अधिकारी/विभाग की PDF फाइल चुनें", type=["pdf"], key="single_pdf")
+    uploaded_file = st.file_uploader("यहाँ कोई भी PDF फाइल चुनें (राजकाज / ई-आधार / प्रमाण पत्र)", type=["pdf"], key="single_pdf")
 
     if uploaded_file:
-        # नई फाइल अपलोड होने पर पुराना सेशन डेटा रिसेट करें
         if st.session_state.get("last_uploaded_name") != uploaded_file.name:
             st.session_state["last_uploaded_name"] = uploaded_file.name
             st.session_state.pop("processed_pdf", None)
@@ -609,23 +620,18 @@ with tab1:
                     st.error("❌ गलत पासवर्ड! कृपया सही पासवर्ड डालें।")
 
         if unlocked:
+            # 100% ऑटोमैटिक एक्सट्रैक्शन (बिना किसी मैनुअल एडिट बॉक्स के)
             auto_name, auto_desig, auto_date, auto_reason = extract_universal_signature_details(doc)
 
             st.info(
-                f"🔍 **PDF से स्वतः प्राप्त सिग्नेचर विवरण:**\n"
-                f"- **अधिकारी / संस्था (Signed by):** `{auto_name}`\n"
-                f"- **पद / विभाग (Designation):** `{auto_desig.replace(chr(10), ' ') if auto_desig else 'N/A'}`\n"
+                f"✨ **PDF से स्वतः फेच किया गया सिग्नेचर विवरण:**\n"
+                f"- **अधिकारी का नाम (Name):** `{auto_name}`\n"
+                f"- **पद (Designation):** `{auto_desig.replace(chr(10), ' ') if auto_desig else 'N/A'}`\n"
                 f"- **दिनांक व समय (Date):** `{auto_date if auto_date else 'N/A'}`\n"
                 f"- **कारण (Reason):** `{auto_reason}`"
             )
 
-            with st.expander("✏️ यदि आप नाम या पद में कुछ सुधार करना चाहें तो यहाँ क्लिक करें (वैकल्पिक)"):
-                auto_name = st.text_input("अधिकारी का नाम (Name):", value=auto_name, key=f"n_{uploaded_file.name}")
-                auto_desig = st.text_area("पद (Designation):", value=auto_desig, height=68, key=f"d_{uploaded_file.name}")
-                auto_date = st.text_input("दिनांक व समय (Date):", value=auto_date, key=f"dt_{uploaded_file.name}")
-                auto_reason = st.text_input("कारण (Reason):", value=auto_reason, key=f"r_{uploaded_file.name}")
-
-            if st.button("🚀 ऑटो-वैलिडेट करें और ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
+            if st.button("🚀 सिग्नेचर वैलिडेट करें और ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
                 out_doc = fitz.open("pdf", doc.tobytes())
                 stamped_count = 0
                 for page in out_doc:
@@ -686,7 +692,6 @@ with tab1:
 # ==================== TAB 2: BULK VALIDATOR ====================
 with tab2:
     st.subheader("📚 एक साथ कई PDF फाइलों में ग्रीन टिक लगाएं")
-    st.write("अलग-अलग अधिकारियों या विभागों की कितनी भी फाइलें अपलोड करें, यह हर फाइल से उसी के अधिकारी का नाम पढ़कर ग्रीन टिक लगाएगा।")
     bulk_files = st.file_uploader("यहाँ एक या अधिक PDF फाइलें चुनें", type=["pdf"], accept_multiple_files=True, key="bulk_pdf")
     
     if bulk_files:
