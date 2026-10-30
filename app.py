@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 
 st.set_page_config(page_title="Universal DSC Validator & Toolkit", page_icon="✅", layout="centered")
 st.title("✅ यूनिवर्सल डिजिटल सिग्नेचर वैलिडेटर एवं पीडीएफ टूलकिट")
-st.caption("राजकाज, ई-आधार, ई-मित्र व सभी विभागीय आदेशों के लिए 100% ऑटोमैटिक पीडीएफ सॉल्यूशन")
+st.caption("राजकाज, ई-आधार, ई-मित्र व सभी विभागीय आदेशों के लिए 100% ऑटोमैटिक पीडीएफ सॉल्यूशन (मल्टी-पेज सपोर्ट)")
 
 # -------------------- CLEAN ENGLISH & TEXT FORMATTER --------------------
 
@@ -163,7 +163,6 @@ def is_valid_text(val):
     return not any(j in low for j in junk)
 
 def is_invalid_designation(val):
-    """'Raj eSign', 'DOIT', 'Personal' जैसे फालतू शब्दों को पद (Designation) बनने से रोकना"""
     if not val or len(val.strip()) < 2:
         return True
     low = val.lower().strip()
@@ -184,20 +183,13 @@ def is_ca_name(val):
     return any(k in low for k in ca_keywords)
 
 def parse_combined_signature_block(raw_text):
-    """
-    यदि PDF के सिग्नेचर बॉक्स में पूरा टेक्स्ट एक साथ जुड़ा हो (जैसे:
-    'Digitally signed by Sandesh Nayak Designation : Collector and District Magistrate Date: 2026.10.25 15:25:21 IST Reason: Approved')
-    तो उसमें से Name, Designation, Date और Reason को बिल्कुल अलग-अलग करना।
-    """
     p_name, p_desig, p_date, p_reason = "", "", "", ""
     if not raw_text:
         return p_name, p_desig, p_date, p_reason
 
-    # सभी लाइनों को एक स्पेस से जोड़कर साफ करें
     flat = " ".join([ln.strip() for ln in raw_text.splitlines() if ln.strip()])
     flat = re.sub(r'(?i)signature\s+not\s+verified|signature\s+valid|\?', ' ', flat).strip()
 
-    # 1. Name निकालें (Digitally signed by के बाद और Designation/Date/Reason/Location से पहले)
     m_name = re.search(
         r'(?i)digitally\s+signed\s+by\s*:?\s*(.+?)(?=\s+designation\s*:|\s+date\s*:|\s+reason\s*:|\s+location\s*:|$)',
         flat
@@ -207,7 +199,6 @@ def parse_combined_signature_block(raw_text):
         if is_valid_text(cand) and not is_ca_name(cand):
             p_name = cand
 
-    # 2. Designation निकालें (Designation: के बाद और Date/Reason/Location से पहले)
     m_desig = re.search(
         r'(?i)designation\s*:\s*(.+?)(?=\s+date\s*:|\s+reason\s*:|\s+location\s*:|$)',
         flat
@@ -217,7 +208,6 @@ def parse_combined_signature_block(raw_text):
         if is_valid_text(cand) and not is_invalid_designation(cand):
             p_desig = cand
 
-    # 3. Date निकालें
     m_date = re.search(
         r'(?i)date\s*:\s*([0-9]{4}[\.\-\/][0-9]{2}[\.\-\/][0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\s*[A-Za-z\+0-9\:]*)?)',
         flat
@@ -225,7 +215,6 @@ def parse_combined_signature_block(raw_text):
     if m_date:
         p_date = m_date.group(1).strip()
 
-    # 4. Reason निकालें
     m_reason = re.search(
         r'(?i)reason\s*:\s*(.+?)(?=\s+location\s*:|\s+date\s*:|$)',
         flat
@@ -238,7 +227,6 @@ def parse_combined_signature_block(raw_text):
     return p_name, p_desig, p_date, p_reason
 
 def wrap_designation_smartly(desig_str):
-    """यदि पद (Designation) लंबा हो तो उसे साफ-सुथरा 2 लाइनों में बाँटना ताकि बॉक्स के बाहर न जाए"""
     if not desig_str:
         return ""
     desig_str = " ".join(desig_str.split())
@@ -258,10 +246,6 @@ def wrap_designation_smartly(desig_str):
     return desig_str
 
 def extract_universal_signature_details(doc):
-    """
-    PDF के सिग्नेचर विजेट, Appearance Stream, PKCS#7 सर्टिफिकेट और लेटर से
-    100% सटीक Name, Designation, Date और Reason अपने आप निकालना।
-    """
     found_name = ""
     found_desig = ""
     found_date = ""
@@ -270,22 +254,16 @@ def extract_universal_signature_details(doc):
     for page in doc:
         for widget in page.widgets():
             if widget.field_type == fitz.PDF_WIDGET_TYPE_SIGNATURE:
-                # 1. सिग्नेचर बॉक्स के विज़ुअल एरिया से पूरा टेक्स्ट पढ़ना
                 try:
                     box_text = page.get_text("text", clip=widget.rect)
                     n1, d1, dt1, r1 = parse_combined_signature_block(box_text)
-                    if n1:
-                        found_name = n1
-                    if d1:
-                        found_desig = d1
-                    if dt1:
-                        found_date = dt1
-                    if r1:
-                        found_reason = r1
+                    if n1: found_name = n1
+                    if d1: found_desig = d1
+                    if dt1: found_date = dt1
+                    if r1: found_reason = r1
                 except Exception:
                     pass
 
-                # 2. सिग्नेचर ऑब्जेक्ट और उसके XObject स्ट्रीम के अंदर छुपे टेक्स्ट को पढ़ना
                 sig_obj_str = doc.xref_object(widget.xref)
                 v_match = re.search(r'/V\s+(\d+)\s+0\s+R', sig_obj_str)
                 if v_match:
@@ -301,7 +279,6 @@ def extract_universal_signature_details(doc):
                         s_bytes = doc.xref_stream(int(ref_str))
                         if s_bytes:
                             s_txt = s_bytes.decode('latin1', errors='ignore')
-                            # PDF stream में (...) या <...> में लिखे टेक्स्ट को निकालना
                             for p_match in re.findall(r'\(([^()]{2,200})\)', s_txt):
                                 clean_p = p_match.replace('\\(', '(').replace('\\)', ')').strip()
                                 stream_texts.append(clean_p)
@@ -311,16 +288,11 @@ def extract_universal_signature_details(doc):
                 if stream_texts:
                     combined_stream = " ".join(stream_texts)
                     n2, d2, dt2, r2 = parse_combined_signature_block(combined_stream)
-                    if n2 and not found_name:
-                        found_name = n2
-                    if d2 and not found_desig:
-                        found_desig = d2
-                    if dt2 and not found_date:
-                        found_date = dt2
-                    if r2 and not found_reason:
-                        found_reason = r2
+                    if n2 and not found_name: found_name = n2
+                    if d2 and not found_desig: found_desig = d2
+                    if dt2 and not found_date: found_date = dt2
+                    if r2 and not found_reason: found_reason = r2
 
-                # 3. PKCS#7 डिजिटल सर्टिफिकेट की जांच
                 contents_match = re.search(r'/Contents\s*<([0-9A-Fa-f\s]+)>', sig_obj_str)
                 if contents_match:
                     try:
@@ -333,37 +305,26 @@ def extract_universal_signature_details(doc):
                             cn, title, ou, org = "", "", "", ""
                             for attr in cert.subject:
                                 val = attr.value.strip() if isinstance(attr.value, str) else ""
-                                if attr.oid == x509.NameOID.COMMON_NAME:
-                                    cn = val
-                                elif attr.oid == x509.NameOID.TITLE:
-                                    title = val
-                                elif attr.oid == x509.NameOID.ORGANIZATIONAL_UNIT_NAME:
-                                    ou = val
-                                elif attr.oid == x509.NameOID.ORGANIZATION_NAME:
-                                    org = val
+                                if attr.oid == x509.NameOID.COMMON_NAME: cn = val
+                                elif attr.oid == x509.NameOID.TITLE: title = val
+                                elif attr.oid == x509.NameOID.ORGANIZATIONAL_UNIT_NAME: ou = val
+                                elif attr.oid == x509.NameOID.ORGANIZATION_NAME: org = val
 
                             if cn and not is_ca_name(cn) and is_valid_text(cn):
-                                # यदि CN के अंदर भी Designation जुड़ा हो तो उसे अलग करें
                                 if "designation" in cn.lower():
                                     cn_n, cn_d, _, _ = parse_combined_signature_block("Digitally signed by " + cn)
-                                    if cn_n and not found_name:
-                                        found_name = cn_n
-                                    if cn_d and not found_desig:
-                                        found_desig = cn_d
+                                    if cn_n and not found_name: found_name = cn_n
+                                    if cn_d and not found_desig: found_desig = cn_d
                                 elif not found_name:
                                     found_name = cn
 
                                 if not found_desig:
-                                    if title and not is_invalid_designation(title):
-                                        found_desig = title
-                                    elif ou and not is_invalid_designation(ou):
-                                        found_desig = ou
-                                    elif org and not is_invalid_designation(org) and not is_ca_name(org):
-                                        found_desig = org
+                                    if title and not is_invalid_designation(title): found_desig = title
+                                    elif ou and not is_invalid_designation(ou): found_desig = ou
+                                    elif org and not is_invalid_designation(org) and not is_ca_name(org): found_desig = org
                     except Exception:
                         pass
 
-                # 4. PDF सिग्नेचर डिक्शनरी (/Name, /M, /Reason) की जांच
                 if not found_date:
                     d_m = re.search(r'/M\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', sig_obj_str)
                     if d_m:
@@ -382,19 +343,16 @@ def extract_universal_signature_details(doc):
                         if "designation" in raw_nm.lower():
                             nm_only, ds_only, _, _ = parse_combined_signature_block("Digitally signed by " + raw_nm)
                             found_name = nm_only or raw_nm
-                            if ds_only and not found_desig:
-                                found_desig = ds_only
+                            if ds_only and not found_desig: found_desig = ds_only
                         else:
                             found_name = raw_nm
 
-    # अगर किसी वजह से found_name में अभी भी 'Designation :' चिपका रह गया हो तो उसे तुरंत अलग करें
     if "designation" in found_name.lower():
         parts = re.split(r'(?i)\s*designation\s*:\s*', found_name, maxsplit=1)
         found_name = parts[0].strip()
         if len(parts) > 1 and parts[1].strip() and (not found_desig or is_invalid_designation(found_desig)):
             found_desig = parts[1].strip()
 
-    # 5. यदि सर्टिफिकेट में पद (Designation) नहीं मिला (जैसे केवल Raj eSign था), तो लेटर के टेक्स्ट से पद निकालें
     if not found_name or not found_desig or is_invalid_designation(found_desig):
         full_text = ""
         for page in doc:
@@ -411,8 +369,7 @@ def extract_universal_signature_details(doc):
             if m:
                 cand_name = m.group(1).strip()
                 if not any(w in cand_name.lower() for w in non_person):
-                    if not found_name:
-                        found_name = cand_name
+                    if not found_name: found_name = cand_name
                     if not found_desig or is_invalid_designation(found_desig):
                         d_parts = []
                         for next_i in range(idx + 1, min(idx + 3, len(lines))):
@@ -450,7 +407,6 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     safe_date = to_clean_english(date_str).strip()
     safe_reason = to_clean_english(reason).strip()
 
-    # पुराने क्वेश्चन मार्क (?) को सफेद बॉक्स से साफ करना
     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
     
     w, h = rect.width, rect.height
@@ -459,7 +415,6 @@ def draw_green_tick_and_text(page, rect, name, designation, date_str, reason):
     t_left = 0.032
     t_right = 0.039
 
-    # हूबहू Adobe Reader जैसा ग्रीन टिक
     pts_main = [
         fitz.Point(x0 + w * 0.310, y0 + h * 0.585),
         fitz.Point(x0 + w * (0.310 + t_left), y0 + h * 0.505),
@@ -620,7 +575,6 @@ with tab1:
                     st.error("❌ गलत पासवर्ड! कृपया सही पासवर्ड डालें।")
 
         if unlocked:
-            # 100% ऑटोमैटिक एक्सट्रैक्शन (बिना किसी मैनुअल एडिट बॉक्स के)
             auto_name, auto_desig, auto_date, auto_reason = extract_universal_signature_details(doc)
 
             st.info(
@@ -631,9 +585,11 @@ with tab1:
                 f"- **कारण (Reason):** `{auto_reason}`"
             )
 
-            if st.button("🚀 सिग्नेचर वैलिडेट करें और ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
+            if st.button("🚀 सिग्नेचर वैलिडेट करें और सभी पेजों पर ग्रीन टिक (✔) लगाएं", use_container_width=True, key="s_btn"):
                 out_doc = fitz.open("pdf", doc.tobytes())
                 stamped_count = 0
+                
+                # लूप पूरे डॉक्यूमेंट के हर एक पेज पर चलेगा (मल्टी-पेज सपोर्ट)
                 for page in out_doc:
                     widgets = list(page.widgets())
                     for widget in widgets:
@@ -661,7 +617,7 @@ with tab1:
                     st.session_state["show_preview"] = not st.session_state.get("show_preview", False)
                     
                 if st.session_state.get("show_preview", False):
-                    st.info("📄 फाइल का प्रीव्यू (आप इसे ज़ूम करके देख सकते हैं):")
+                    st.info("📄 फाइल का प्रीव्यू (सभी पेज):")
                     preview_doc = fitz.open("pdf", st.session_state["processed_pdf"])
                     for i, page in enumerate(preview_doc):
                         pix = page.get_pixmap(dpi=150)
